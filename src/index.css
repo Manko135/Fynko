@@ -1,0 +1,211 @@
+/* Fonts must be imported before Tailwind. */
+@import url('https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,400..800&family=Hanken+Grotesk:wght@400..800&family=Geist+Mono:wght@400..600&display=swap');
+@import 'tailwindcss';
+
+/*
+  THEME ARCHITECTURE — read before adding any color.
+
+  Every color that sits on a surface which changes with the theme MUST use a
+  semantic token below (bg-bg, bg-surface, text-ink, border-ink, text-brand…).
+  These map to CSS variables that are redefined per theme, so nothing goes
+  white-on-white in light mode.
+
+  Fixed colors (text-white, etc.) are allowed ONLY on a solid colored surface
+  that does NOT change with the theme — e.g. white text on a brand-solid button
+  (text-on-brand), or inside the login gradient panel.
+
+  Charts (Recharts) receive color via JS props, not classes — use the
+  --chart-* variables (e.g. stroke="var(--chart-axis)") so they adapt too.
+*/
+
+@theme {
+  --font-display: 'Bricolage Grotesque', ui-sans-serif, system-ui, sans-serif;
+  --font-sans: 'Hanken Grotesk', ui-sans-serif, system-ui, sans-serif;
+  --font-mono: 'Geist Mono', ui-monospace, 'SFMono-Regular', monospace;
+
+  --radius-lg: 12px;
+  --radius-xl: 14px;
+  --radius-2xl: 20px;
+
+  /* Surfaces (page → card → input/nested → dropdown/hover). Distinct steps in BOTH themes. */
+  --color-bg: var(--bg);
+  --color-surface: var(--surface);
+  --color-surface-2: var(--surface-2);
+  --color-surface-3: var(--surface-3);
+
+  /* Semantic ink — text & borders on theme-variable surfaces. */
+  --color-ink: var(--ink);
+
+  /* Brand + status (each already tuned per theme below).
+     Concept "Livro-caixa noturno": GOLD is the primary (money), teal is the
+     secondary support, parchment is the ledger-paper accent surface. */
+  --color-brand: var(--brand); /* gold */
+  --color-brand-strong: var(--brand-strong);
+  --color-brand-solid: var(--brand-solid);
+  --color-on-brand: var(--on-brand);
+  --color-teal: var(--teal); /* secondary accent */
+  --color-gold: var(--gold);
+  --color-paper: var(--paper); /* parchment accent surface */
+  --color-ink-paper: var(--ink-paper); /* text/ink on the paper surface */
+  --color-rule: var(--rule); /* ledger hairlines */
+  --color-positive: var(--positive);
+  --color-danger: var(--danger);
+  --color-warning: var(--warning);
+
+  /* Secondary/tertiary text — solid, theme-tuned to pass WCAG on surfaces.
+     Use text-muted for labels/metadata and text-faint for hints/placeholders,
+     instead of low-opacity text-ink (which fails contrast on the light page). */
+  --color-muted: var(--muted);
+  --color-faint: var(--faint);
+}
+
+/* DARK (default) — after-hours, deep owl-plumage green-black. */
+:root,
+:root[data-theme='dark'] {
+  --bg: #0b1f1a; /* petrol green-black, from the owl's feathers */
+  --surface: #102a24;
+  --surface-2: #17352e;
+  --surface-3: #204339;
+  --ink: #edf2ea; /* warm near-white */
+
+  --brand: #f5b841; /* Moeda Gold — primary */
+  --brand-strong: #ffca57; /* hover */
+  --brand-solid: #f5b841; /* gold fill; dark ink text */
+  --on-brand: #16261f; /* deep green ink on gold */
+  --teal: #37b79c; /* Coruja Teal — secondary */
+  --gold: #f5b841;
+  --paper: #efe7d3; /* parchment strip (owl's belly) */
+  --ink-paper: #16302a; /* green ink printed on parchment */
+  --rule: rgba(237, 242, 234, 0.14); /* ledger lines on dark */
+  --positive: #46c98a;
+  --danger: #ff7a59; /* persimmon, warmer than pure red */
+  --warning: #ffca57;
+  --muted: #b7c4bd; /* secondary text (8.4:1 on surface) */
+  --faint: #8a978f; /* tertiary text/hints (5.0:1) */
+
+  --chart-ink: #edf2ea;
+  --chart-axis: rgba(237, 242, 234, 0.55);
+  --chart-grid: rgba(237, 242, 234, 0.09);
+
+  color-scheme: dark;
+}
+
+/* LIGHT — daytime paper ledger: warm parchment page, deep-green ink. */
+:root[data-theme='light'] {
+  --bg: #f2eee2; /* soft parchment page */
+  --surface: #fbf8f0;
+  --surface-2: #efe9db;
+  --surface-3: #e6dfcd;
+  --ink: #16302a; /* deep green ledger ink */
+
+  --brand: #6b4e07; /* dark goldenrod — readable as text on paper (7.3:1) */
+  --brand-strong: #533c05;
+  --brand-solid: #e6a81c; /* gold fill; dark ink text */
+  --on-brand: #16261f;
+  --teal: #0e7a66;
+  --gold: #c6910f;
+  --paper: #123027; /* inverted: deep-green accent panel in light mode */
+  --ink-paper: #efe7d3; /* cream ink on the green panel */
+  --rule: rgba(22, 48, 42, 0.16); /* ledger lines on paper */
+  --positive: #0a7a4d; /* 5.1:1 */
+  --danger: #bb3018; /* 5.6:1 */
+  --warning: #7a5807; /* 6.1:1 */
+  --muted: #4d5f57; /* secondary text (6.4:1 on surface) */
+  --faint: #6f7d75; /* tertiary text/hints (4.1:1) */
+
+  --chart-ink: #16302a;
+  --chart-axis: rgba(22, 48, 42, 0.55);
+  --chart-grid: rgba(22, 48, 42, 0.1);
+
+  color-scheme: light;
+}
+
+html,
+body,
+#root {
+  height: 100%;
+}
+
+body {
+  margin: 0;
+  background-color: var(--color-bg);
+  color: var(--color-ink);
+  font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+
+/* Money & tabular data — figures that line up like a bank statement. */
+.tnum {
+  font-variant-numeric: tabular-nums;
+  font-feature-settings: 'tnum' 1;
+}
+
+/* Ledger ruling — faint horizontal baselines, like accounting paper.
+   Signature texture for hero/statement panels. */
+.ledger-rule {
+  background-image: repeating-linear-gradient(
+    to bottom,
+    transparent 0,
+    transparent calc(1.75rem - 1px),
+    var(--color-rule) calc(1.75rem - 1px),
+    var(--color-rule) 1.75rem
+  );
+}
+
+/* Visible keyboard focus everywhere (non-negotiable quality floor). */
+:focus-visible {
+  outline: 2px solid var(--color-brand);
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+
+/* Discreet entrance microinteractions (auto-disabled by reduced-motion below). */
+@keyframes fynko-pop {
+  from {
+    opacity: 0;
+    transform: translateY(6px) scale(0.985);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+@keyframes fynko-fade {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+@keyframes fynko-toast {
+  from {
+    opacity: 0;
+    transform: translateX(14px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+.animate-pop {
+  animation: fynko-pop 0.18s cubic-bezier(0.2, 0.7, 0.2, 1);
+}
+.animate-fade {
+  animation: fynko-fade 0.16s ease-out;
+}
+.animate-toast-in {
+  animation: fynko-toast 0.2s cubic-bezier(0.2, 0.7, 0.2, 1);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+    scroll-behavior: auto !important;
+  }
+}

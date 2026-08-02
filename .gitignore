@@ -1,0 +1,14 @@
+node_modules
+dist
+dist-ssr
+*.local
+.env
+.env.*
+!.env.example
+.DS_Store
+.netlify
+coverage
+*.log
+
+# Config local de ferramentas de dev
+.claude/

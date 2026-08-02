@@ -1,0 +1,19 @@
+# Fynko — Netlify config (free tier)
+# Static SPA build from Vite. Serverless functions are used only where a
+# server is strictly required — in this project, the scheduled attachment
+# retention job (Part 5.7). It is added in Phase 5, not here.
+
+[build]
+  command = "npm run build"
+  publish = "dist"
+
+# Serverless functions (the daily attachment-retention job, Part 5.7).
+[functions]
+  directory = "netlify/functions"
+
+# SPA fallback: every non-asset route serves index.html so client-side
+# routing (react-router) works on deep links and refreshes.
+[[redirects]]
+  from = "/*"
+  to = "/index.html"
+  status = 200
