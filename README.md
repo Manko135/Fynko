@@ -28,21 +28,6 @@ O **Fynko** nasceu como uma ferramenta pessoal para eu controlar minhas própria
 
 Todo valor monetário é armazenado em **centavos (inteiros)** para evitar erros de arredondamento, e os saldos seguem o regime de **caixa** (calculados a partir dos lançamentos reais, pela data de pagamento).
 
-## Demonstração
-
-> As imagens abaixo usam uma **conta de teste com dados fictícios** — nenhum dado financeiro real é exibido.
-
-<!-- Adicione suas capturas em docs/screenshots/ e elas aparecerão aqui -->
-<p align="center">
-  <img src="docs/screenshots/dashboard.png" alt="Dashboard" width="80%" />
-  <br /><em>Dashboard com previsão de saldo e gráficos</em>
-</p>
-
-<p align="center">
-  <img src="docs/screenshots/cartoes.png" alt="Cartões" width="80%" />
-  <br /><em>Controle de cartões, fatura e limite</em>
-</p>
-
 ## Funcionalidades
 
 - **Dashboard** com previsão de saldo do mês, indicadores e gráficos (receitas × despesas, evolução do saldo, gastos por categoria).
