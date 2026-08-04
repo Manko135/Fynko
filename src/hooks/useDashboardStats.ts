@@ -40,8 +40,10 @@ export function useDashboardStats() {
     const receitaMes = inc
       .filter((i) => monthKey(i.date) === curMonth)
       .reduce((s, i) => s + i.amount_cents, 0)
+    // Competência: despesa do mês = pagas neste mês (por data de pagamento) +
+    // as que vencem neste mês e ainda não foram pagas (por vencimento).
     const despesaMes = exp
-      .filter((e) => e.payment_date && monthKey(e.payment_date) === curMonth)
+      .filter((e) => monthKey(e.payment_date ?? e.due_date) === curMonth)
       .reduce((s, e) => s + e.amount_cents, 0)
 
     // Status buckets over all unpaid expenses.
@@ -78,7 +80,7 @@ export function useDashboardStats() {
         .filter((i) => monthKey(i.date) === key)
         .reduce((s, i) => s + i.amount_cents, 0)
       const despesa = exp
-        .filter((e) => e.payment_date && monthKey(e.payment_date) === key)
+        .filter((e) => monthKey(e.payment_date ?? e.due_date) === key)
         .reduce((s, e) => s + e.amount_cents, 0)
       months.push({
         key,
@@ -98,7 +100,7 @@ export function useDashboardStats() {
     // Category breakdown of expenses paid this month.
     const byCat = new Map<string, number>()
     for (const e of exp) {
-      if (e.payment_date && monthKey(e.payment_date) === curMonth) {
+      if (monthKey(e.payment_date ?? e.due_date) === curMonth) {
         const k = e.category_id ?? 'sem'
         byCat.set(k, (byCat.get(k) ?? 0) + e.amount_cents)
       }
@@ -123,7 +125,7 @@ export function useDashboardStats() {
       emAberto,
       qtdLancamentos: inc.length + exp.length,
       saldoPrevistoFimMes,
-      economiaPrevista: receitaMes + receitasFuturas - despesaMes - despesasPendentesMes,
+      economiaPrevista: receitaMes - despesaMes,
       months,
       saldoSeries,
       categoriesSlices,

@@ -65,8 +65,9 @@ export function useBalances() {
       today,
     )
 
-    // Monthly balance (cash basis): income received this month minus expenses
-    // PAID this month. A payment dated to a past month does not count here.
+    // Monthly balance (competência): income of this month minus every expense
+    // that BELONGS to this month — its payment month if paid, otherwise its due
+    // month. So a bill due this month that's still unpaid already reduces it.
     const curMonth = monthKey(today)
     let receitaMes = 0
     let despesaMes = 0
@@ -74,7 +75,7 @@ export function useBalances() {
       if (monthKey(i.date) === curMonth) receitaMes += i.amount_cents
     }
     for (const e of expenses ?? []) {
-      if (e.payment_date && monthKey(e.payment_date) === curMonth) despesaMes += e.amount_cents
+      if (monthKey(e.payment_date ?? e.due_date) === curMonth) despesaMes += e.amount_cents
     }
     const saldoMesCents = receitaMes - despesaMes
 

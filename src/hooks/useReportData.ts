@@ -67,10 +67,10 @@ export function useReportData(period: Period, filters: FilterValue = {}) {
     const allInc = (incomes ?? []).filter(incomePass)
     const allExp = (expenses ?? []).filter(expensePass)
     const incRows = allInc.filter((i) => periodMatches(i.date, period))
-    // Regime de caixa: uma despesa só entra num período pela sua DATA DE
-    // PAGAMENTO. Despesas ainda não pagas não têm impacto no caixa, então são
-    // excluídas — mantendo o relatório idêntico ao saldo e ao dashboard.
-    const expRows = allExp.filter((e) => e.payment_date != null && periodMatches(e.payment_date, period))
+    // Competência: a despesa pertence ao período do seu PAGAMENTO se paga, ou
+    // do seu VENCIMENTO se ainda não paga. Assim contas vencidas e não pagas do
+    // mês aparecem no relatório do mês (e uma paga entra no mês do pagamento).
+    const expRows = allExp.filter((e) => periodMatches(e.payment_date ?? e.due_date, period))
 
     const rows: ReportRow[] = []
     for (const i of incRows) {
@@ -143,7 +143,7 @@ export function useReportData(period: Period, filters: FilterValue = {}) {
     const monthly = MONTHS.map((label, m) => {
       const key = `${period.year}-${String(m + 1).padStart(2, '0')}`
       const receita = allInc.filter((i) => monthKey(i.date) === key).reduce((s, i) => s + i.amount_cents, 0)
-      const despesa = allExp.filter((e) => e.payment_date && monthKey(e.payment_date) === key).reduce((s, e) => s + e.amount_cents, 0)
+      const despesa = allExp.filter((e) => monthKey(e.payment_date ?? e.due_date) === key).reduce((s, e) => s + e.amount_cents, 0)
       return { label, receita: receita / 100, despesa: despesa / 100, saldo: (receita - despesa) / 100 }
     })
     let running = 0

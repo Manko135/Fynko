@@ -20,6 +20,7 @@ import { Button } from '@/components/ui/Button'
 import { Modal } from '@/components/ui/Modal'
 import { StatusBadge } from '@/components/ui/StatusBadge'
 import { FilterBar, type FilterValue } from '@/components/ui/FilterBar'
+import { DateRangeFilter } from '@/components/ui/DateRangeFilter'
 import { RowMenu, type RowMenuItem } from '@/components/ui/RowMenu'
 import { SortHeader, type SortDir } from '@/components/ui/SortHeader'
 import { DetailsModal, type DetailRow } from '@/components/records/DetailsModal'
@@ -81,6 +82,8 @@ export function DespesasPage() {
 
   const [query, setQuery] = useState('')
   const [filters, setFilters] = useState<FilterValue>({})
+  const [dateFrom, setDateFrom] = useState('')
+  const [dateTo, setDateTo] = useState('')
   const [sort, setSort] = useState<{ key: SortKey; dir: SortDir } | null>(null)
   const [page, setPage] = useState(0)
   const [formOpen, setFormOpen] = useState(false)
@@ -154,6 +157,8 @@ export function DespesasPage() {
     const accs = filters.account ?? []
     const cardsF = filters.card ?? []
     return (expenses ?? []).filter((r) => {
+      if (dateFrom && r.due_date < dateFrom) return false
+      if (dateTo && r.due_date > dateTo) return false
       if (cats.length && !(r.category_id && cats.includes(r.category_id))) return false
       if (types.length && !types.includes(r.type)) return false
       if (accs.length && !(r.account_id && accs.includes(r.account_id))) return false
@@ -169,7 +174,7 @@ export function DespesasPage() {
         cat.toLowerCase().includes(q)
       )
     })
-  }, [expenses, query, filters, catMap, today])
+  }, [expenses, query, filters, dateFrom, dateTo, catMap, today])
 
   // Summary totals — always derived from the same filtered set as the list.
   const paid = filtered.reduce((s, e) => (e.payment_date ? s + e.amount_cents : s), 0)
@@ -334,11 +339,16 @@ export function DespesasPage() {
 
       {!isEmpty && (
         <>
-          <div className="mb-4">
+          <div className="mb-4 flex flex-col gap-3">
             <FilterBar
               groups={filterGroups}
               value={filters}
               onChange={(v) => { setFilters(v); setPage(0) }}
+            />
+            <DateRangeFilter
+              from={dateFrom}
+              to={dateTo}
+              onChange={(f, t) => { setDateFrom(f); setDateTo(t); setPage(0) }}
             />
           </div>
           <div className="overflow-hidden rounded-2xl border border-rule bg-surface">

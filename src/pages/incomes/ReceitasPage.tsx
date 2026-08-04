@@ -14,6 +14,7 @@ import {
 import { Button } from '@/components/ui/Button'
 import { ConfirmDialog } from '@/components/ui/ConfirmDialog'
 import { FilterBar, type FilterValue } from '@/components/ui/FilterBar'
+import { DateRangeFilter } from '@/components/ui/DateRangeFilter'
 import { RowMenu, type RowMenuItem } from '@/components/ui/RowMenu'
 import { SortHeader, type SortDir } from '@/components/ui/SortHeader'
 import { DetailsModal, type DetailRow } from '@/components/records/DetailsModal'
@@ -42,6 +43,8 @@ export function ReceitasPage() {
 
   const [query, setQuery] = useState('')
   const [filters, setFilters] = useState<FilterValue>({})
+  const [dateFrom, setDateFrom] = useState('')
+  const [dateTo, setDateTo] = useState('')
   const [sort, setSort] = useState<{ key: SortKey; dir: SortDir } | null>(null)
   const [page, setPage] = useState(0)
   const [formOpen, setFormOpen] = useState(false)
@@ -84,6 +87,8 @@ export function ReceitasPage() {
     const cats = filters.category ?? []
     const accs = filters.account ?? []
     return (incomes ?? []).filter((r) => {
+      if (dateFrom && r.date < dateFrom) return false
+      if (dateTo && r.date > dateTo) return false
       if (cats.length && !(r.category_id && cats.includes(r.category_id))) return false
       if (accs.length && !(r.account_id && accs.includes(r.account_id))) return false
       if (!q) return true
@@ -93,7 +98,7 @@ export function ReceitasPage() {
         cat.toLowerCase().includes(q)
       )
     })
-  }, [incomes, query, filters, catMap])
+  }, [incomes, query, filters, dateFrom, dateTo, catMap])
 
   const total = filtered.reduce((s, r) => s + r.amount_cents, 0)
 
@@ -223,11 +228,16 @@ export function ReceitasPage() {
 
       {!isEmpty && (
         <>
-          <div className="mb-4">
+          <div className="mb-4 flex flex-col gap-3">
             <FilterBar
               groups={filterGroups}
               value={filters}
               onChange={(v) => { setFilters(v); setPage(0) }}
+            />
+            <DateRangeFilter
+              from={dateFrom}
+              to={dateTo}
+              onChange={(f, t) => { setDateFrom(f); setDateTo(t); setPage(0) }}
             />
           </div>
           <div className="overflow-hidden rounded-2xl border border-rule bg-surface">
