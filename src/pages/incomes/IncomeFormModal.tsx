@@ -7,8 +7,10 @@ import { CurrencyInput } from '@/components/ui/CurrencyInput'
 import { useToast } from '@/contexts/ToastContext'
 import { useAccounts } from '@/hooks/useAccounts'
 import { AttachmentsPanel } from '@/components/attachments/AttachmentsPanel'
+import { StagedAttachments } from '@/components/attachments/StagedAttachments'
 import { CategorySelectField } from '@/components/categories/CategorySelectField'
 import { useCreateIncome, useUpdateIncome } from '@/hooks/useIncomes'
+import { uploadAttachment } from '@/services/attachments'
 import { todayISO } from '@/lib/dates'
 import type { Income } from '@/types/domain'
 import type { IncomeInput } from '@/services/incomes'
@@ -38,9 +40,11 @@ export function IncomeFormModal({
   const create = useCreateIncome()
   const update = useUpdateIncome()
   const [form, setForm] = useState<IncomeInput>(emptyForm)
+  const [stagedFiles, setStagedFiles] = useState<File[]>([])
 
   useEffect(() => {
     if (!open) return
+    setStagedFiles([])
     setForm(
       editing
         ? {
@@ -56,6 +60,19 @@ export function IncomeFormModal({
   }, [open, editing])
 
   const saving = create.isPending || update.isPending
+
+  async function uploadStaged(incomeId: string) {
+    if (stagedFiles.length === 0) return
+    let failed = 0
+    for (const f of stagedFiles) {
+      try {
+        await uploadAttachment(f, { incomeId })
+      } catch {
+        failed++
+      }
+    }
+    if (failed) toast(`${failed} anexo(s) não puderam ser enviados.`, 'error')
+  }
 
   async function handleSubmit() {
     if (!form.description.trim()) {
@@ -75,7 +92,8 @@ export function IncomeFormModal({
         await update.mutateAsync({ id: editing.id, patch: form })
         toast('Receita atualizada.')
       } else {
-        await create.mutateAsync(form)
+        const created = await create.mutateAsync(form)
+        await uploadStaged(created.id)
         toast('Receita registrada.')
       }
       onClose()
@@ -146,11 +164,13 @@ export function IncomeFormModal({
           placeholder="Opcional"
         />
 
-        {editing && (
-          <div className="border-t border-rule pt-4">
+        <div className="border-t border-rule pt-4">
+          {editing ? (
             <AttachmentsPanel target={{ incomeId: editing.id }} />
-          </div>
-        )}
+          ) : (
+            <StagedAttachments files={stagedFiles} onChange={setStagedFiles} />
+          )}
+        </div>
       </div>
     </Modal>
   )

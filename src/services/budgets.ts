@@ -8,6 +8,7 @@ async function currentUserId(): Promise<string> {
 }
 
 export type BudgetInput = {
+  title: string | null
   scope: BudgetScope
   category_id: string | null
   card_id: string | null

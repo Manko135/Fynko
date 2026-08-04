@@ -4,6 +4,7 @@ import { Button } from '@/components/ui/Button'
 import { TextField } from '@/components/ui/TextField'
 import { Select } from '@/components/ui/Select'
 import { CurrencyInput } from '@/components/ui/CurrencyInput'
+import { CoinSelect } from '@/components/crypto/CoinSelect'
 import { useToast } from '@/contexts/ToastContext'
 import {
   useCreateAsset,
@@ -11,11 +12,19 @@ import {
   useUpdateAsset,
   useUpdateLiability,
 } from '@/hooks/usePatrimonio'
+import { useCryptoMarkets } from '@/hooks/useCryptoMarkets'
+import {
+  CRYPTO_BY_SYMBOL,
+  CRYPTO_CATEGORY,
+  CRYPTO_MANUAL,
+  liveCryptoValueCents,
+} from '@/lib/crypto'
+import { formatBRL } from '@/lib/money'
 import type { Asset, Liability } from '@/types/domain'
 
 export type ItemKind = 'asset' | 'liability'
 
-const ASSET_CATS = ['Dinheiro', 'Investimento', 'Ações', 'FII', 'Criptomoeda', 'Imóvel', 'Veículo', 'Outro']
+const ASSET_CATS = ['Dinheiro', 'Investimento', 'Ações', 'FII', CRYPTO_CATEGORY, 'Imóvel', 'Veículo', 'Outro']
 const LIAB_CATS = ['Empréstimo', 'Financiamento', 'Dívida', 'Parcelamento', 'Outro']
 
 export function PatrimonioItemModal({
@@ -34,10 +43,13 @@ export function PatrimonioItemModal({
   const updateA = useUpdateAsset()
   const createL = useCreateLiability()
   const updateL = useUpdateLiability()
+  const { data: markets } = useCryptoMarkets('brl')
 
   const [name, setName] = useState('')
   const [category, setCategory] = useState('')
   const [value, setValue] = useState(0)
+  const [cryptoSymbol, setCryptoSymbol] = useState('')
+  const [cryptoAmount, setCryptoAmount] = useState(0)
   const [acquired, setAcquired] = useState('')
   const [notes, setNotes] = useState('')
 
@@ -49,12 +61,17 @@ export function PatrimonioItemModal({
       setName(editing.name)
       setCategory(editing.category)
       setValue(editing.value_cents)
+      const sym = 'crypto_symbol' in editing ? editing.crypto_symbol : null
+      setCryptoSymbol(sym ?? (editing.category === CRYPTO_CATEGORY ? CRYPTO_MANUAL : ''))
+      setCryptoAmount('crypto_amount' in editing ? (editing.crypto_amount ?? 0) : 0)
       setAcquired('acquired_date' in editing ? (editing.acquired_date ?? '') : '')
       setNotes(editing.notes ?? '')
     } else {
       setName('')
       setCategory(cats[0])
       setValue(0)
+      setCryptoSymbol('')
+      setCryptoAmount(0)
       setAcquired('')
       setNotes('')
     }
@@ -63,9 +80,18 @@ export function PatrimonioItemModal({
 
   const saving = createA.isPending || updateA.isPending || createL.isPending || updateL.isPending
 
+  const isCrypto = kind === 'asset' && category === CRYPTO_CATEGORY
+  const isSyncedCoin = isCrypto && !!cryptoSymbol && cryptoSymbol !== CRYPTO_MANUAL
+  const livePrice = isSyncedCoin ? markets?.[cryptoSymbol]?.price : undefined
+  const liveCents = liveCryptoValueCents(cryptoSymbol, cryptoAmount, livePrice)
+
   async function handleSave() {
     if (!name.trim()) {
       toast('Dê um nome ao item.', 'error')
+      return
+    }
+    if (isSyncedCoin && cryptoAmount <= 0) {
+      toast('Informe a quantidade da moeda.', 'error')
       return
     }
     try {
@@ -73,7 +99,10 @@ export function PatrimonioItemModal({
         const payload = {
           name,
           category,
-          value_cents: value,
+          // Synced coin: snapshot the live value (recomputed live when shown).
+          value_cents: isSyncedCoin ? liveCents ?? value : value,
+          crypto_symbol: isSyncedCoin ? cryptoSymbol : null,
+          crypto_amount: isSyncedCoin ? cryptoAmount : null,
           acquired_date: acquired || null,
           notes: notes || null,
         }
@@ -116,15 +145,63 @@ export function PatrimonioItemModal({
           onChange={(e) => setName(e.target.value)}
           placeholder={kind === 'asset' ? 'Ex: Apartamento, Tesouro Selic' : 'Ex: Financiamento do carro'}
         />
-        <div className="grid grid-cols-2 gap-4">
-          <Select
-            label="Categoria"
-            options={cats.map((c) => ({ value: c, label: c }))}
-            value={category}
-            onChange={(e) => setCategory(e.target.value)}
-          />
-          <CurrencyInput label="Valor" value={value} onChange={setValue} />
-        </div>
+
+        {isCrypto ? (
+          <>
+            <Select
+              label="Categoria"
+              options={cats.map((c) => ({ value: c, label: c }))}
+              value={category}
+              onChange={(e) => setCategory(e.target.value)}
+            />
+            <CoinSelect
+              value={cryptoSymbol}
+              onChange={(sym) => {
+                setCryptoSymbol(sym)
+                const coin = CRYPTO_BY_SYMBOL.get(sym)
+                if (coin && !name.trim()) setName(coin.name)
+              }}
+            />
+            {isSyncedCoin ? (
+              <div className="grid grid-cols-2 gap-4">
+                <TextField
+                  label="Quantidade"
+                  type="number"
+                  step="any"
+                  min={0}
+                  inputMode="decimal"
+                  value={cryptoAmount ? String(cryptoAmount) : ''}
+                  onChange={(e) => setCryptoAmount(Math.max(0, Number(e.target.value) || 0))}
+                  placeholder="Ex: 0.5"
+                />
+                <div className="flex flex-col gap-1.5">
+                  <span className="text-sm font-medium text-ink/75">Valor atual</span>
+                  <div className="rounded-xl border border-rule bg-surface-2 px-3 py-2.5 font-mono text-ink tnum">
+                    {liveCents != null ? formatBRL(liveCents) : livePrice == null ? 'Carregando…' : '—'}
+                  </div>
+                </div>
+              </div>
+            ) : (
+              <CurrencyInput label="Valor" value={value} onChange={setValue} />
+            )}
+            {isSyncedCoin && (
+              <p className="-mt-1 text-xs text-muted">
+                O valor é atualizado automaticamente pela cotação da moeda.
+              </p>
+            )}
+          </>
+        ) : (
+          <div className="grid grid-cols-2 gap-4">
+            <Select
+              label="Categoria"
+              options={cats.map((c) => ({ value: c, label: c }))}
+              value={category}
+              onChange={(e) => setCategory(e.target.value)}
+            />
+            <CurrencyInput label="Valor" value={value} onChange={setValue} />
+          </div>
+        )}
+
         {kind === 'asset' && (
           <TextField
             label="Data de aquisição"

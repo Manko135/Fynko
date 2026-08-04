@@ -9,7 +9,9 @@ import { useAccounts } from '@/hooks/useAccounts'
 import { useCards } from '@/hooks/useCards'
 import { useCreateExpenses, useUpdateExpense } from '@/hooks/useExpenses'
 import { AttachmentsPanel } from '@/components/attachments/AttachmentsPanel'
+import { StagedAttachments } from '@/components/attachments/StagedAttachments'
 import { CategorySelectField } from '@/components/categories/CategorySelectField'
+import { uploadAttachment } from '@/services/attachments'
 import { generateInstallments } from '@/lib/finance/installments'
 import { formatBRL } from '@/lib/money'
 import { todayISO } from '@/lib/dates'
@@ -81,9 +83,11 @@ export function ExpenseFormModal({
   const [isPaid, setIsPaid] = useState(false)
   const [paymentDate, setPaymentDate] = useState(todayISO())
   const [notes, setNotes] = useState('')
+  const [stagedFiles, setStagedFiles] = useState<File[]>([])
 
   useEffect(() => {
     if (!open) return
+    setStagedFiles([])
     if (editing) {
       setDescription(editing.description)
       setTipo(editing.type)
@@ -114,6 +118,19 @@ export function ExpenseFormModal({
 
   const isParcelada = tipo === 'parcelada' && !editing
   const saving = create.isPending || update.isPending
+
+  async function uploadStaged(expenseId: string | undefined) {
+    if (!expenseId || stagedFiles.length === 0) return
+    let failed = 0
+    for (const f of stagedFiles) {
+      try {
+        await uploadAttachment(f, { expenseId })
+      } catch {
+        failed++
+      }
+    }
+    if (failed) toast(`${failed} anexo(s) não puderam ser enviados.`, 'error')
+  }
 
   const preview = useMemo(() => {
     if (!isParcelada || amount <= 0 || installments < 2) return null
@@ -180,10 +197,11 @@ export function ExpenseFormModal({
             notes: notes || null,
           }),
         )
-        await create.mutateAsync(rows)
+        const created = (await create.mutateAsync(rows)) as Expense[]
+        await uploadStaged(created[0]?.id)
         toast(`Despesa parcelada em ${installments}x criada.`)
       } else {
-        await create.mutateAsync([
+        const created = (await create.mutateAsync([
           {
             description,
             type: tipo,
@@ -195,7 +213,8 @@ export function ExpenseFormModal({
             category_id,
             notes: notes || null,
           },
-        ])
+        ])) as Expense[]
+        await uploadStaged(created[0]?.id)
         toast('Despesa registrada.')
       }
       onClose()
@@ -337,11 +356,13 @@ export function ExpenseFormModal({
           placeholder="Opcional"
         />
 
-        {editing && (
-          <div className="border-t border-rule pt-4">
+        <div className="border-t border-rule pt-4">
+          {editing ? (
             <AttachmentsPanel target={{ expenseId: editing.id }} />
-          </div>
-        )}
+          ) : (
+            <StagedAttachments files={stagedFiles} onChange={setStagedFiles} />
+          )}
+        </div>
       </div>
     </Modal>
   )

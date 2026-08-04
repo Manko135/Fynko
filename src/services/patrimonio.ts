@@ -11,6 +11,8 @@ export type AssetInput = {
   name: string
   category: string
   value_cents: number
+  crypto_symbol: string | null
+  crypto_amount: number | null
   acquired_date: string | null
   notes: string | null
 }

@@ -1,10 +1,14 @@
 import { useMemo, useState } from 'react'
 import {
+  AlertTriangle,
   CalendarClock,
   Check,
+  CheckCircle2,
   ChevronLeft,
   ChevronRight,
   CreditCard,
+  Eye,
+  Paperclip,
   Pencil,
   Plus,
   Search,
@@ -16,6 +20,10 @@ import { Button } from '@/components/ui/Button'
 import { Modal } from '@/components/ui/Modal'
 import { StatusBadge } from '@/components/ui/StatusBadge'
 import { FilterBar, type FilterValue } from '@/components/ui/FilterBar'
+import { RowMenu, type RowMenuItem } from '@/components/ui/RowMenu'
+import { SortHeader, type SortDir } from '@/components/ui/SortHeader'
+import { DetailsModal, type DetailRow } from '@/components/records/DetailsModal'
+import { AttachModal } from '@/components/records/AttachModal'
 import { ExpenseFormModal } from './ExpenseFormModal'
 import {
   useExpenses,
@@ -30,8 +38,34 @@ import { usePageSize } from '@/hooks/usePageSize'
 import { useToast } from '@/contexts/ToastContext'
 import { formatBRL } from '@/lib/money'
 import { formatDisplayDate, todayISO } from '@/lib/dates'
-import { expenseStatus } from '@/lib/finance/status'
+import { expenseStatus, type ExpenseStatus } from '@/lib/finance/status'
 import type { Expense } from '@/types/domain'
+
+type SortKey = 'descricao' | 'categoria' | 'vencimento' | 'valor'
+
+function SummaryCard({
+  label,
+  value,
+  icon,
+  iconClass,
+  valueClass,
+}: {
+  label: string
+  value: string
+  icon: React.ReactNode
+  iconClass: string
+  valueClass: string
+}) {
+  return (
+    <div className="flex items-center gap-3 rounded-2xl border border-rule bg-surface px-5 py-3 shadow-sm">
+      <span className={`grid size-10 shrink-0 place-items-center rounded-xl ${iconClass}`}>{icon}</span>
+      <div className="min-w-0">
+        <div className="font-mono text-[10px] uppercase tracking-[0.15em] text-muted">{label}</div>
+        <div className={`font-display text-2xl font-bold leading-tight tnum ${valueClass}`}>{value}</div>
+      </div>
+    </div>
+  )
+}
 
 export function DespesasPage() {
   const { data: expenses, isLoading } = useExpenses()
@@ -47,10 +81,13 @@ export function DespesasPage() {
 
   const [query, setQuery] = useState('')
   const [filters, setFilters] = useState<FilterValue>({})
+  const [sort, setSort] = useState<{ key: SortKey; dir: SortDir } | null>(null)
   const [page, setPage] = useState(0)
   const [formOpen, setFormOpen] = useState(false)
   const [editing, setEditing] = useState<Expense | null>(null)
   const [deleting, setDeleting] = useState<Expense | null>(null)
+  const [details, setDetails] = useState<Expense | null>(null)
+  const [attaching, setAttaching] = useState<Expense | null>(null)
 
   const catMap = useMemo(
     () => new Map((categories ?? []).map((c) => [c.id, c])),
@@ -132,20 +169,44 @@ export function DespesasPage() {
         cat.toLowerCase().includes(q)
       )
     })
-  }, [expenses, query, filters, catMap, categories, accounts, cards, today])
+  }, [expenses, query, filters, catMap, today])
 
-  const paid = filtered.reduce(
-    (s, e) => (e.payment_date ? s + e.amount_cents : s),
+  // Summary totals — always derived from the same filtered set as the list.
+  const paid = filtered.reduce((s, e) => (e.payment_date ? s + e.amount_cents : s), 0)
+  const vencido = filtered.reduce(
+    (s, e) =>
+      !e.payment_date && expenseStatus(e.due_date, e.payment_date, today) === 'vencido'
+        ? s + e.amount_cents
+        : s,
     0,
   )
-  const toPay = filtered.reduce(
-    (s, e) => (e.payment_date ? s : s + e.amount_cents),
-    0,
-  )
+  const toPay = filtered.reduce((s, e) => {
+    if (e.payment_date) return s
+    return expenseStatus(e.due_date, e.payment_date, today) === 'vencido' ? s : s + e.amount_cents
+  }, 0)
 
-  const pageCount = Math.max(1, Math.ceil(filtered.length / pageSize))
+  const sorted = useMemo(() => {
+    if (!sort) return filtered
+    const dir = sort.dir === 'asc' ? 1 : -1
+    const catName = (id: string | null) => (id ? catMap.get(id)?.name ?? '' : '')
+    return [...filtered].sort((a, b) => {
+      let cmp = 0
+      if (sort.key === 'descricao') cmp = a.description.localeCompare(b.description, 'pt-BR')
+      else if (sort.key === 'categoria') cmp = catName(a.category_id).localeCompare(catName(b.category_id), 'pt-BR')
+      else if (sort.key === 'vencimento') cmp = a.due_date < b.due_date ? -1 : a.due_date > b.due_date ? 1 : 0
+      else if (sort.key === 'valor') cmp = a.amount_cents - b.amount_cents
+      return cmp * dir
+    })
+  }, [filtered, sort, catMap])
+
+  const pageCount = Math.max(1, Math.ceil(sorted.length / pageSize))
   const current = Math.min(page, pageCount - 1)
-  const rows = filtered.slice(current * pageSize, current * pageSize + pageSize)
+  const rows = sorted.slice(current * pageSize, current * pageSize + pageSize)
+
+  function toggleSort(key: SortKey) {
+    setSort((s) => (s?.key === key ? { key, dir: s.dir === 'asc' ? 'desc' : 'asc' } : { key, dir: 'asc' }))
+    setPage(0)
+  }
 
   async function quickPay(e: Expense) {
     try {
@@ -172,6 +233,53 @@ export function DespesasPage() {
     }
   }
 
+  function detailRows(e: Expense): DetailRow[] {
+    const cat = e.category_id ? catMap.get(e.category_id) : null
+    const acc = e.account_id ? accMap.get(e.account_id) : null
+    const card = e.card_id ? cardMap.get(e.card_id) : null
+    const st = expenseStatus(e.due_date, e.payment_date, today)
+    const list: DetailRow[] = [
+      {
+        label: 'Descrição',
+        value:
+          e.description +
+          (e.installment_count ? ` (${e.installment_index}/${e.installment_count})` : ''),
+      },
+    ]
+    if (cat)
+      list.push({
+        label: 'Categoria',
+        value: (
+          <span className="inline-flex items-center gap-1.5">
+            <span className="size-2 rounded-full" style={{ background: cat.color ?? 'var(--color-brand)' }} />
+            {cat.name}
+          </span>
+        ),
+      })
+    if (acc) list.push({ label: 'Conta', value: acc.name })
+    if (card) list.push({ label: 'Cartão', value: card.name })
+    list.push({ label: 'Valor', value: <span className="font-mono tnum">{formatBRL(e.amount_cents)}</span> })
+    list.push({ label: 'Vencimento', value: formatDisplayDate(e.due_date) })
+    if (e.payment_date) list.push({ label: 'Pagamento', value: formatDisplayDate(e.payment_date) })
+    list.push({ label: 'Status', value: <StatusBadge status={st} /> })
+    if (e.notes) list.push({ label: 'Observações', value: e.notes })
+    list.push({ label: 'Criado em', value: formatDisplayDate(e.created_at.slice(0, 10)) })
+    list.push({ label: 'Atualizado em', value: formatDisplayDate(e.updated_at.slice(0, 10)) })
+    return list
+  }
+
+  function menuFor(e: Expense, status: ExpenseStatus): RowMenuItem[] {
+    return [
+      { label: 'Ver informações', icon: Eye, onClick: () => setDetails(e) },
+      { label: 'Editar', icon: Pencil, onClick: () => { setEditing(e); setFormOpen(true) } },
+      ...(status !== 'pago' && !e.card_id
+        ? [{ label: 'Marcar como pago', icon: Check, onClick: () => quickPay(e) }]
+        : []),
+      { label: 'Anexar documentos', icon: Paperclip, onClick: () => setAttaching(e) },
+      { label: 'Excluir', icon: Trash2, onClick: () => setDeleting(e), danger: true },
+    ]
+  }
+
   const isEmpty = !isLoading && (expenses?.length ?? 0) === 0
   const deletingLoading = del.isPending || delGroup.isPending
 
@@ -179,24 +287,27 @@ export function DespesasPage() {
     <div className="mx-auto max-w-5xl">
       <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center sm:justify-between">
         <div className="grid grid-cols-1 gap-3 sm:flex sm:flex-wrap">
-          <div className="flex items-center gap-3 rounded-2xl border border-rule bg-surface px-5 py-3 shadow-sm">
-            <span className="grid size-10 place-items-center rounded-xl bg-warning/15 text-warning">
-              <CalendarClock className="size-5" />
-            </span>
-            <div>
-              <div className="font-mono text-[10px] uppercase tracking-[0.15em] text-muted">A pagar</div>
-              <div className="font-display text-2xl font-bold leading-tight tnum text-warning">{formatBRL(toPay)}</div>
-            </div>
-          </div>
-          <div className="flex items-center gap-3 rounded-2xl border border-rule bg-surface px-5 py-3 shadow-sm">
-            <span className="grid size-10 place-items-center rounded-xl bg-positive/12 text-positive">
-              <Check className="size-5" />
-            </span>
-            <div>
-              <div className="font-mono text-[10px] uppercase tracking-[0.15em] text-muted">Pago</div>
-              <div className="font-display text-2xl font-bold leading-tight tnum text-ink/80">{formatBRL(paid)}</div>
-            </div>
-          </div>
+          <SummaryCard
+            label="A pagar"
+            value={formatBRL(toPay)}
+            icon={<CalendarClock className="size-5" />}
+            iconClass="bg-warning/15 text-warning"
+            valueClass="text-warning"
+          />
+          <SummaryCard
+            label="Vencido"
+            value={formatBRL(vencido)}
+            icon={<AlertTriangle className="size-5" />}
+            iconClass="bg-danger/12 text-danger"
+            valueClass="text-danger"
+          />
+          <SummaryCard
+            label="Pago"
+            value={formatBRL(paid)}
+            icon={<CheckCircle2 className="size-5" />}
+            iconClass="bg-positive/12 text-positive"
+            valueClass="text-ink/80"
+          />
         </div>
         {!isEmpty && (
           <Button className="w-full sm:w-auto" icon={<Plus className="size-4" strokeWidth={2.5} />} onClick={() => { setEditing(null); setFormOpen(true) }}>
@@ -227,161 +338,146 @@ export function DespesasPage() {
             <FilterBar
               groups={filterGroups}
               value={filters}
-              onChange={(v) => {
-                setFilters(v)
-                setPage(0)
-              }}
+              onChange={(v) => { setFilters(v); setPage(0) }}
             />
           </div>
-          <div className="rounded-2xl border border-rule bg-surface">
-          <div className="flex items-center gap-2 border-b border-rule px-4 py-3">
-            <Search className="size-4 text-faint" />
-            <input
-              value={query}
-              onChange={(e) => { setQuery(e.target.value); setPage(0) }}
-              placeholder="Buscar por descrição ou categoria"
-              className="w-full bg-transparent text-sm text-ink placeholder:text-faint outline-none"
-            />
-          </div>
+          <div className="overflow-hidden rounded-2xl border border-rule bg-surface">
+            <div className="flex items-center gap-2 border-b border-rule px-4 py-3">
+              <Search className="size-4 text-faint" />
+              <input
+                value={query}
+                onChange={(e) => { setQuery(e.target.value); setPage(0) }}
+                placeholder="Buscar por descrição ou categoria"
+                className="w-full bg-transparent text-sm text-ink placeholder:text-faint outline-none"
+              />
+            </div>
 
-          <div className="hidden grid-cols-[1.6fr_1fr_1fr_0.8fr_0.9fr_auto] gap-3 px-4 py-2.5 font-mono text-[10px] uppercase tracking-[0.12em] text-faint sm:grid">
-            <span>Descrição</span>
-            <span>Categoria</span>
-            <span>Vencimento</span>
-            <span>Status</span>
-            <span className="text-right">Valor</span>
-            <span className="w-24 text-right">Ações</span>
-          </div>
+            {/* Cabeçalho (desktop) */}
+            <div className="hidden items-center gap-3 border-b border-rule px-4 py-2.5 sm:grid sm:grid-cols-[1.7fr_1fr_1fr_0.9fr_0.9fr_44px]">
+              <SortHeader label="Descrição" active={sort?.key === 'descricao'} dir={sort?.dir} onClick={() => toggleSort('descricao')} />
+              <SortHeader label="Categoria" active={sort?.key === 'categoria'} dir={sort?.dir} onClick={() => toggleSort('categoria')} />
+              <SortHeader label="Vencimento" active={sort?.key === 'vencimento'} dir={sort?.dir} onClick={() => toggleSort('vencimento')} />
+              <span className="font-mono text-[10px] uppercase tracking-[0.12em] text-faint">Status</span>
+              <SortHeader label="Valor" active={sort?.key === 'valor'} dir={sort?.dir} onClick={() => toggleSort('valor')} align="right" />
+              <span className="sr-only">Ações</span>
+            </div>
 
-          <div className="divide-y divide-rule">
-            {isLoading &&
-              [0, 1, 2, 3].map((i) => (
-                <div key={i} className="h-14 animate-pulse bg-surface-2/40" />
-              ))}
+            <div className="divide-y divide-rule">
+              {isLoading &&
+                [0, 1, 2, 3].map((i) => (
+                  <div key={i} className="h-16 animate-pulse bg-surface-2/40" />
+                ))}
 
-            {rows.map((e) => {
-              const cat = e.category_id ? catMap.get(e.category_id) : null
-              const source = e.card_id
-                ? cardMap.get(e.card_id)?.name
-                : e.account_id
-                  ? accMap.get(e.account_id)?.name
-                  : null
-              const status = expenseStatus(e.due_date, e.payment_date, today)
-              return (
-                <div
-                  key={e.id}
-                  className="group grid grid-cols-2 items-center gap-x-3 gap-y-1 px-4 py-3 transition-colors hover:bg-surface-2/60 sm:grid-cols-[1.6fr_1fr_1fr_0.8fr_0.9fr_auto]"
-                >
-                  <div className="min-w-0">
-                    <div className="flex items-center gap-1.5">
-                      <span className="truncate font-semibold text-ink">{e.description}</span>
-                      {e.installment_count && (
-                        <span className="shrink-0 rounded bg-ink/8 px-1 font-mono text-[10px] text-muted">
-                          {e.installment_index}/{e.installment_count}
-                        </span>
-                      )}
-                    </div>
-                    <div className="flex items-center gap-1 font-mono text-[11px] text-muted">
-                      {e.card_id ? (
-                        <CreditCard className="size-3" />
-                      ) : (
-                        <Wallet className="size-3" />
-                      )}
-                      {source ?? '—'}
-                    </div>
-                  </div>
-                  <div className="flex items-center gap-1.5 text-sm text-muted">
+              {rows.map((e) => {
+                const cat = e.category_id ? catMap.get(e.category_id) : null
+                const source = e.card_id
+                  ? cardMap.get(e.card_id)?.name
+                  : e.account_id
+                    ? accMap.get(e.account_id)?.name
+                    : null
+                const status = expenseStatus(e.due_date, e.payment_date, today)
+                const menu = menuFor(e, status)
+                const title = (
+                  <span className="flex items-center gap-1.5">
+                    <span className="truncate font-semibold text-ink">{e.description}</span>
+                    {e.installment_count && (
+                      <span className="shrink-0 rounded bg-ink/8 px-1 font-mono text-[10px] text-muted">
+                        {e.installment_index}/{e.installment_count}
+                      </span>
+                    )}
+                  </span>
+                )
+                const sourceLine = (
+                  <span className="flex items-center gap-1 font-mono text-[11px] text-muted">
+                    {e.card_id ? <CreditCard className="size-3" /> : <Wallet className="size-3" />}
+                    {source ?? '—'}
+                  </span>
+                )
+                const categoryCell = (
+                  <span className="flex items-center gap-1.5 text-sm text-muted">
                     {cat && (
-                      <span
-                        className="size-2 shrink-0 rounded-full"
-                        style={{ background: cat.color ?? 'var(--color-brand)' }}
-                      />
+                      <span className="size-2 shrink-0 rounded-full" style={{ background: cat.color ?? 'var(--color-brand)' }} />
                     )}
                     <span className="truncate">{cat?.name ?? '—'}</span>
-                  </div>
-                  <div className="hidden font-mono text-xs text-faint sm:block">
-                    {formatDisplayDate(e.due_date)}
-                  </div>
-                  <div>
-                    <StatusBadge status={status} />
-                  </div>
-                  <div className="text-right font-mono text-[15px] font-semibold tnum text-ink">
-                    {formatBRL(e.amount_cents)}
-                  </div>
-                  <div className="col-span-2 mt-1.5 flex justify-end gap-1 border-t border-rule/60 pt-2 opacity-100 transition focus-within:opacity-100 sm:col-span-1 sm:mt-0 sm:border-0 sm:pt-0 sm:opacity-0 sm:group-hover:opacity-100">
-                    {status !== 'pago' && !e.card_id && (
-                      <button
-                        type="button"
-                        aria-label="Marcar como paga"
-                        onClick={() => quickPay(e)}
-                        className="grid size-8 place-items-center rounded-lg text-muted hover:bg-positive/12 hover:text-positive"
-                      >
-                        <Check className="size-4" />
-                      </button>
-                    )}
-                    <button
-                      type="button"
-                      aria-label="Editar"
-                      onClick={() => { setEditing(e); setFormOpen(true) }}
-                      className="grid size-8 place-items-center rounded-lg text-muted hover:bg-surface-2"
-                    >
-                      <Pencil className="size-4" />
-                    </button>
-                    <button
-                      type="button"
-                      aria-label="Excluir"
-                      onClick={() => setDeleting(e)}
-                      className="grid size-8 place-items-center rounded-lg text-muted hover:bg-surface-2 hover:text-danger"
-                    >
-                      <Trash2 className="size-4" />
-                    </button>
-                  </div>
-                </div>
-              )
-            })}
-
-            {!isLoading && rows.length === 0 && (
-              <div className="px-4 py-10 text-center text-sm text-muted">
-                Nenhuma despesa encontrada para “{query}”.
-              </div>
-            )}
-          </div>
-
-          {!isLoading && filtered.length > 0 && (
-            <div className="flex items-center justify-between border-t border-rule px-4 py-3 text-sm text-muted">
-              <span>
-                Mostrando {current * pageSize + 1}–{current * pageSize + rows.length} de{' '}
-                {filtered.length} registro{filtered.length !== 1 ? 's' : ''}
-              </span>
-              {pageCount > 1 && (
-                <div className="flex items-center gap-2">
-                  <span className="hidden font-mono text-xs text-faint sm:inline">
-                    Página {current + 1} de {pageCount}
                   </span>
-                  <div className="flex gap-1">
-                    <button
-                      type="button"
-                      aria-label="Página anterior"
-                      disabled={current === 0}
-                      onClick={() => setPage(current - 1)}
-                      className="grid size-8 place-items-center rounded-lg border border-rule transition disabled:opacity-40 enabled:hover:bg-surface-2"
-                    >
-                      <ChevronLeft className="size-4" />
-                    </button>
-                    <button
-                      type="button"
-                      aria-label="Próxima página"
-                      disabled={current >= pageCount - 1}
-                      onClick={() => setPage(current + 1)}
-                      className="grid size-8 place-items-center rounded-lg border border-rule transition disabled:opacity-40 enabled:hover:bg-surface-2"
-                    >
-                      <ChevronRight className="size-4" />
-                    </button>
+                )
+
+                return (
+                  <div key={e.id} className="px-4 transition-colors hover:bg-surface-2/60">
+                    {/* Desktop */}
+                    <div className="hidden items-center gap-3 py-3 sm:grid sm:grid-cols-[1.7fr_1fr_1fr_0.9fr_0.9fr_44px]">
+                      <div className="min-w-0">
+                        {title}
+                        <div className="mt-0.5">{sourceLine}</div>
+                      </div>
+                      <div className="min-w-0">{categoryCell}</div>
+                      <div className="font-mono text-xs text-faint">{formatDisplayDate(e.due_date)}</div>
+                      <div><StatusBadge status={status} /></div>
+                      <div className="text-right font-mono text-[15px] font-semibold tnum text-ink">{formatBRL(e.amount_cents)}</div>
+                      <div className="flex justify-end"><RowMenu items={menu} /></div>
+                    </div>
+
+                    {/* Mobile */}
+                    <div className="flex items-center gap-3 py-3 sm:hidden">
+                      <div className="min-w-0 flex-1">
+                        {title}
+                        <div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-0.5">
+                          {categoryCell}
+                          <span className="font-mono text-[11px] text-faint">{formatDisplayDate(e.due_date)}</span>
+                        </div>
+                      </div>
+                      <div className="flex flex-col items-end gap-1">
+                        <span className="font-mono text-[15px] font-semibold tnum text-ink">{formatBRL(e.amount_cents)}</span>
+                        <StatusBadge status={status} />
+                      </div>
+                      <RowMenu items={menu} />
+                    </div>
                   </div>
+                )
+              })}
+
+              {!isLoading && rows.length === 0 && (
+                <div className="px-4 py-10 text-center text-sm text-muted">
+                  Nenhuma despesa encontrada para “{query}”.
                 </div>
               )}
             </div>
-          )}
+
+            {!isLoading && sorted.length > 0 && (
+              <div className="flex items-center justify-between border-t border-rule px-4 py-3 text-sm text-muted">
+                <span>
+                  Mostrando {current * pageSize + 1}–{current * pageSize + rows.length} de{' '}
+                  {sorted.length} registro{sorted.length !== 1 ? 's' : ''}
+                </span>
+                {pageCount > 1 && (
+                  <div className="flex items-center gap-2">
+                    <span className="hidden font-mono text-xs text-faint sm:inline">
+                      Página {current + 1} de {pageCount}
+                    </span>
+                    <div className="flex gap-1">
+                      <button
+                        type="button"
+                        aria-label="Página anterior"
+                        disabled={current === 0}
+                        onClick={() => setPage(current - 1)}
+                        className="grid size-8 place-items-center rounded-lg border border-rule transition disabled:opacity-40 enabled:hover:bg-surface-2"
+                      >
+                        <ChevronLeft className="size-4" />
+                      </button>
+                      <button
+                        type="button"
+                        aria-label="Próxima página"
+                        disabled={current >= pageCount - 1}
+                        onClick={() => setPage(current + 1)}
+                        className="grid size-8 place-items-center rounded-lg border border-rule transition disabled:opacity-40 enabled:hover:bg-surface-2"
+                      >
+                        <ChevronRight className="size-4" />
+                      </button>
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
           </div>
         </>
       )}
@@ -390,6 +486,20 @@ export function DespesasPage() {
         open={formOpen}
         onClose={() => setFormOpen(false)}
         editing={editing}
+      />
+
+      <DetailsModal
+        open={!!details}
+        onClose={() => setDetails(null)}
+        title="Detalhes da despesa"
+        rows={details ? detailRows(details) : []}
+        attachTarget={details ? { expenseId: details.id } : undefined}
+      />
+
+      <AttachModal
+        open={!!attaching}
+        onClose={() => setAttaching(null)}
+        target={attaching ? { expenseId: attaching.id } : { expenseId: '' }}
       />
 
       {/* Delete — offers single vs whole group for installments */}

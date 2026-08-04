@@ -12,7 +12,9 @@ import {
   useDeleteLiability,
 } from '@/hooks/usePatrimonio'
 import { useToast } from '@/contexts/ToastContext'
+import { useCryptoMarkets } from '@/hooks/useCryptoMarkets'
 import { formatBRL } from '@/lib/money'
+import { formatCryptoAmount, liveCryptoValueCents } from '@/lib/crypto'
 import type { Asset, Liability } from '@/types/domain'
 
 type Row = { id: string; name: string; subtitle: string; valueCents: number; editable: boolean; item?: Asset | Liability }
@@ -59,6 +61,12 @@ export function PatrimonioPage() {
   const delAsset = useDeleteAsset()
   const delLiab = useDeleteLiability()
   const { toast } = useToast()
+  const { data: markets } = useCryptoMarkets('brl')
+
+  // Crypto assets reprice live from the current quote; others use their stored value.
+  const assetValue = (a: Asset) =>
+    liveCryptoValueCents(a.crypto_symbol, a.crypto_amount, markets?.[a.crypto_symbol ?? '']?.price) ??
+    a.value_cents
 
   const [modalKind, setModalKind] = useState<ItemKind>('asset')
   const [modalOpen, setModalOpen] = useState(false)
@@ -78,7 +86,7 @@ export function PatrimonioPage() {
   )
 
   const accountsTotal = accountRows.reduce((s, r) => s + r.valueCents, 0)
-  const assetsTotal = (assets ?? []).reduce((s, a) => s + a.value_cents, 0)
+  const assetsTotal = (assets ?? []).reduce((s, a) => s + assetValue(a), 0)
   const liabTotal = (liabilities ?? []).reduce((s, l) => s + l.value_cents, 0)
   const ativos = accountsTotal + assetsTotal
   const liquido = ativos - liabTotal
@@ -148,7 +156,13 @@ export function PatrimonioPage() {
           {(assets ?? []).map((a) => (
             <ItemRow
               key={a.id}
-              row={{ id: a.id, name: a.name, subtitle: a.category, valueCents: a.value_cents, editable: true }}
+              row={{
+                id: a.id,
+                name: a.name,
+                subtitle: a.crypto_symbol ? `${formatCryptoAmount(a.crypto_amount ?? 0)} ${a.crypto_symbol}` : a.category,
+                valueCents: assetValue(a),
+                editable: true,
+              }}
               tone="text-positive"
               onEdit={() => openEdit('asset', a)}
               onDelete={() => setDeleting({ kind: 'asset', item: a })}

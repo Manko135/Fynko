@@ -2,9 +2,10 @@ import { useEffect, useState } from 'react'
 import { Modal } from '@/components/ui/Modal'
 import { Button } from '@/components/ui/Button'
 import { Select } from '@/components/ui/Select'
+import { TextField } from '@/components/ui/TextField'
 import { CurrencyInput } from '@/components/ui/CurrencyInput'
+import { CategorySelectField } from '@/components/categories/CategorySelectField'
 import { useToast } from '@/contexts/ToastContext'
-import { useCategories } from '@/hooks/useCategories'
 import { useCards } from '@/hooks/useCards'
 import { useCreateBudget, useUpdateBudget } from '@/hooks/useBudgets'
 import { cn } from '@/utils/cn'
@@ -26,11 +27,11 @@ export function BudgetFormModal({
   editing: Budget | null
 }) {
   const { toast } = useToast()
-  const { data: categories } = useCategories('expense')
   const { data: cards } = useCards()
   const create = useCreateBudget()
   const update = useUpdateBudget()
 
+  const [title, setTitle] = useState('')
   const [scope, setScope] = useState<BudgetScope>('categoria')
   const [categoryId, setCategoryId] = useState('')
   const [cardId, setCardId] = useState('')
@@ -39,11 +40,13 @@ export function BudgetFormModal({
   useEffect(() => {
     if (!open) return
     if (editing) {
+      setTitle(editing.title ?? '')
       setScope(editing.scope)
       setCategoryId(editing.category_id ?? '')
       setCardId(editing.card_id ?? '')
       setAmount(editing.amount_cents)
     } else {
+      setTitle('')
       setScope('categoria')
       setCategoryId('')
       setCardId('')
@@ -58,6 +61,7 @@ export function BudgetFormModal({
     if (scope === 'cartao' && !cardId) return toast('Escolha o cartão.', 'error')
     if (amount <= 0) return toast('Informe o limite.', 'error')
     const payload = {
+      title: title.trim() || null,
       scope,
       category_id: scope === 'categoria' ? categoryId : null,
       card_id: scope === 'cartao' ? cardId : null,
@@ -90,6 +94,13 @@ export function BudgetFormModal({
       }
     >
       <div className="flex flex-col gap-4">
+        <TextField
+          label="Título"
+          value={title}
+          onChange={(e) => setTitle(e.target.value)}
+          placeholder="Ex: Mercado, Gastos com carro, Contas da casa"
+        />
+
         <div className="flex flex-col gap-1.5">
           <span className="text-sm font-medium text-ink/75">Tipo de limite</span>
           <div className="flex rounded-xl border border-rule bg-surface-2 p-1">
@@ -110,12 +121,10 @@ export function BudgetFormModal({
         </div>
 
         {scope === 'categoria' && (
-          <Select
-            label="Categoria"
-            placeholder="Selecione"
-            options={(categories ?? []).map((c) => ({ value: c.id, label: c.name }))}
+          <CategorySelectField
+            kind="expense"
             value={categoryId}
-            onChange={(e) => setCategoryId(e.target.value)}
+            onChange={setCategoryId}
           />
         )}
         {scope === 'cartao' && (

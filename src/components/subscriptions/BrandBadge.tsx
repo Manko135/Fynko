@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { brandFor, brandLogoUrl } from '@/lib/subscriptionBrands'
+import { brandFor, brandImageUrl } from '@/lib/subscriptionBrands'
 import { DEFAULT_COLOR } from '@/lib/palette'
 
 /**
@@ -20,7 +20,8 @@ export function BrandBadge({
   const accent = color ?? brand?.color ?? DEFAULT_COLOR
   const initial = name.trim().charAt(0).toUpperCase() || '?'
 
-  const showLogo = brand && !failed
+  const logoSrc = brand ? brandImageUrl(brand) : null
+  const showLogo = !!logoSrc && !failed
 
   return (
     <span
@@ -34,7 +35,7 @@ export function BrandBadge({
     >
       {showLogo ? (
         <img
-          src={brandLogoUrl(brand!.domain)}
+          src={logoSrc!}
           alt=""
           width={size * 0.6}
           height={size * 0.6}

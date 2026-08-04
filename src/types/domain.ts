@@ -99,6 +99,8 @@ export type Asset = {
   name: string
   category: string
   value_cents: number
+  crypto_symbol: string | null
+  crypto_amount: number | null
   acquired_date: string | null
   notes: string | null
   created_at: string
@@ -128,6 +130,7 @@ export type Subscription = {
   account_id: string | null
   card_id: string | null
   frequency: SubscriptionFrequency
+  interval_days: number | null
   next_due: string
   status: SubscriptionStatus
   color: string | null
@@ -142,6 +145,7 @@ export type BudgetScope = 'categoria' | 'geral' | 'cartao'
 export type Budget = {
   id: string
   user_id: string
+  title: string | null
   scope: BudgetScope
   category_id: string | null
   card_id: string | null

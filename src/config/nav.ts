@@ -1,6 +1,7 @@
 import {
   ArrowLeftRight,
   CalendarDays,
+  Coins,
   CreditCard,
   Gauge,
   LayoutDashboard,
@@ -37,6 +38,7 @@ export const NAV_ITEMS: NavItem[] = [
   { label: 'Patrimônio', path: '/patrimonio', icon: PiggyBank },
   { label: 'Linha do Tempo', path: '/linha-do-tempo', icon: History },
   { label: 'Relatórios', path: '/relatorios', icon: FileBarChart },
+  { label: 'Criptomoedas', path: '/criptomoedas', icon: Coins },
 ]
 
 /** Extra icon exported for the "Transferências" quick action later. */

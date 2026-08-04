@@ -44,6 +44,7 @@ export function LimitesPage() {
   const cardName = useMemo(() => new Map((cards ?? []).map((c) => [c.id, c.name])), [cards])
 
   function labelFor(b: Budget): string {
+    if (b.title) return b.title
     if (b.scope === 'geral') return 'Limite geral do mês'
     if (b.scope === 'categoria') return catName.get(b.category_id ?? '') ?? 'Categoria'
     return `Cartão · ${cardName.get(b.card_id ?? '') ?? ''}`

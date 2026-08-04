@@ -38,6 +38,13 @@ export function addMonthsClamped(iso: ISODate, n: number): ISODate {
   return toISODate(new Date(y, m, day))
 }
 
+/** Add `n` calendar days to a date. `n` may be negative. */
+export function addDays(iso: ISODate, n: number): ISODate {
+  const d = parseISODate(iso)
+  d.setDate(d.getDate() + n)
+  return toISODate(d)
+}
+
 /** Whole-day difference a - b (positive when a is after b). */
 export function diffDays(a: ISODate, b: ISODate): number {
   const ms = parseISODate(a).getTime() - parseISODate(b).getTime()

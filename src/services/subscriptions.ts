@@ -1,5 +1,5 @@
 import { supabase } from '@/services/supabase'
-import { addMonthsClamped } from '@/lib/dates'
+import { addDays, addMonthsClamped } from '@/lib/dates'
 import type { Subscription, SubscriptionFrequency } from '@/types/domain'
 
 async function currentUserId(): Promise<string> {
@@ -26,8 +26,16 @@ async function assinaturasCategoryId(userId: string): Promise<string> {
   return created.id
 }
 
-export function advanceDue(date: string, freq: SubscriptionFrequency): string {
-  // Personalizada rolls monthly as a sensible default.
+export function advanceDue(
+  date: string,
+  freq: SubscriptionFrequency,
+  intervalDays?: number | null,
+): string {
+  // Personalizada advances by a free day interval when set; otherwise rolls
+  // monthly as a sensible default (keeps legacy custom subscriptions working).
+  if (freq === 'personalizada' && intervalDays && intervalDays > 0) {
+    return addDays(date, intervalDays)
+  }
   return addMonthsClamped(date, freq === 'anual' ? 12 : 1)
 }
 
@@ -37,6 +45,7 @@ export type SubscriptionInput = {
   account_id: string | null
   card_id: string | null
   frequency: SubscriptionFrequency
+  interval_days: number | null
   next_due: string
   status: Subscription['status']
   color: string | null
@@ -173,7 +182,7 @@ export async function reconcileSubscriptions(): Promise<number> {
       .is('payment_date', null)
     if ((count ?? 0) > 0) continue
 
-    const nextDue = advanceDue(s.next_due, s.frequency)
+    const nextDue = advanceDue(s.next_due, s.frequency, s.interval_days)
     await supabase.from('subscriptions').update({ next_due: nextDue }).eq('id', s.id)
     await supabase.from('expenses').insert(
       linkedExpense(user_id, category_id, s.id, {
