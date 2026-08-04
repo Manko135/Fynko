@@ -1,6 +1,7 @@
-import { TrendingUp } from 'lucide-react'
+import { CalendarDays, TrendingUp } from 'lucide-react'
 import { useAccounts } from '@/hooks/useAccounts'
 import { useBalances } from '@/hooks/useBalances'
+import { useBalanceMode } from '@/hooks/useBalanceMode'
 import { formatBRL } from '@/lib/money'
 
 /**
@@ -10,9 +11,15 @@ import { formatBRL } from '@/lib/money'
  */
 export function SidebarBalance() {
   const { data: accounts } = useAccounts()
-  const { saldoAtualCents: total, isLoading } = useBalances()
+  const { saldoAtualCents, saldoMesCents, isLoading } = useBalances()
+  const mode = useBalanceMode()
 
+  const monthly = mode === 'mensal'
+  const total = monthly ? saldoMesCents : saldoAtualCents
   const count = accounts?.length ?? 0
+  const monthLabel = new Date()
+    .toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' })
+    .replace(/^./, (c) => c.toUpperCase())
 
   return (
     <div
@@ -47,7 +54,7 @@ export function SidebarBalance() {
             <span className="font-mono text-[10px] font-bold text-[#6b4a00]">$</span>
           </span>
           <span className="font-mono text-[10px] uppercase tracking-[0.18em] text-muted">
-            Saldo em caixa
+            {monthly ? 'Saldo do mês' : 'Saldo em caixa'}
           </span>
         </div>
       </div>
@@ -62,8 +69,17 @@ export function SidebarBalance() {
       )}
 
       <div className="mt-2 flex items-center gap-1.5 text-[11px] text-muted">
-        <TrendingUp className="size-3 text-positive" />
-        {count === 0 ? 'Nenhuma conta ainda' : `${count} conta${count > 1 ? 's' : ''} ativa${count > 1 ? 's' : ''}`}
+        {monthly ? (
+          <>
+            <CalendarDays className="size-3" />
+            {monthLabel}
+          </>
+        ) : (
+          <>
+            <TrendingUp className="size-3 text-positive" />
+            {count === 0 ? 'Nenhuma conta ainda' : `${count} conta${count > 1 ? 's' : ''} ativa${count > 1 ? 's' : ''}`}
+          </>
+        )}
       </div>
     </div>
   )

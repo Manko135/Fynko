@@ -7,6 +7,7 @@ import { useTheme } from '@/contexts/ThemeContext'
 import { useToast } from '@/contexts/ToastContext'
 import { useProfile, useUpdateProfile } from '@/hooks/useProfile'
 import { useDashboardPrefs, DASHBOARD_SECTIONS } from '@/hooks/useDashboardPrefs'
+import { useBalanceMode, setBalanceMode, type BalanceMode } from '@/hooks/useBalanceMode'
 import { exportAll, importAll } from '@/services/backup'
 import { cn } from '@/utils/cn'
 
@@ -42,6 +43,7 @@ export function ConfiguracoesPage() {
   const { data: profile } = useProfile()
   const updateProfile = useUpdateProfile()
   const { prefs, toggle } = useDashboardPrefs()
+  const balanceMode = useBalanceMode()
   const { toast } = useToast()
   const qc = useQueryClient()
   const fileRef = useRef<HTMLInputElement>(null)
@@ -101,6 +103,21 @@ export function ConfiguracoesPage() {
             value={profile?.currency ?? 'BRL'}
             onChange={(e) => updateProfile.mutate({ currency: e.target.value })}
           />
+        </div>
+        <div className="mt-4">
+          <Select
+            label="Saldo exibido no topo"
+            options={[
+              { value: 'caixa', label: 'Saldo em caixa (acumulado)' },
+              { value: 'mensal', label: 'Saldo do mês (mês atual)' },
+            ]}
+            value={balanceMode}
+            onChange={(e) => setBalanceMode(e.target.value as BalanceMode)}
+          />
+          <p className="mt-1.5 text-xs text-muted">
+            "Em caixa" soma tudo até hoje. "Do mês" mostra só o que entrou e foi
+            pago no mês atual (pagamentos de meses anteriores não contam).
+          </p>
         </div>
       </Section>
 

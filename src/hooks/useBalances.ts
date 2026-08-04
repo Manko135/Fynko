@@ -9,7 +9,7 @@ import {
   type ExpenseRow,
   type IncomeRow,
 } from '@/lib/finance/balance'
-import { todayISO } from '@/lib/dates'
+import { monthKey, todayISO } from '@/lib/dates'
 import type { Account, Expense, Income } from '@/types/domain'
 
 function toIncomeRows(incomes: Income[]): IncomeRow[] {
@@ -65,6 +65,19 @@ export function useBalances() {
       today,
     )
 
+    // Monthly balance (cash basis): income received this month minus expenses
+    // PAID this month. A payment dated to a past month does not count here.
+    const curMonth = monthKey(today)
+    let receitaMes = 0
+    let despesaMes = 0
+    for (const i of incomes ?? []) {
+      if (monthKey(i.date) === curMonth) receitaMes += i.amount_cents
+    }
+    for (const e of expenses ?? []) {
+      if (e.payment_date && monthKey(e.payment_date) === curMonth) despesaMes += e.amount_cents
+    }
+    const saldoMesCents = receitaMes - despesaMes
+
     const byAccount = new Map<string, number>()
     for (const a of accs) {
       byAccount.set(
@@ -99,6 +112,7 @@ export function useBalances() {
     return {
       saldoAtualCents,
       saldoPrevistoCents,
+      saldoMesCents,
       byAccount,
       isLoading:
         accountsQ.isLoading ||
