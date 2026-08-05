@@ -1,12 +1,14 @@
 import { useMemo, useState } from 'react'
 import {
   CalendarCheck,
+  CalendarX,
   ChevronLeft,
   ChevronRight,
   Eye,
   Paperclip,
   Pencil,
   Plus,
+  Repeat,
   Search,
   TrendingUp,
   Trash2,
@@ -21,6 +23,7 @@ import { DetailsModal, type DetailRow } from '@/components/records/DetailsModal'
 import { AttachModal } from '@/components/records/AttachModal'
 import { IncomeFormModal } from './IncomeFormModal'
 import { useIncomes, useDeleteIncome, useUpdateIncome } from '@/hooks/useIncomes'
+import { useReconcileRecurringIncomes, useCancelRecurringIncome } from '@/hooks/useRecurringIncomes'
 import { useCategories } from '@/hooks/useCategories'
 import { useAccounts } from '@/hooks/useAccounts'
 import { usePageSize } from '@/hooks/usePageSize'
@@ -37,9 +40,13 @@ export function ReceitasPage() {
   const { data: accounts } = useAccounts()
   const del = useDeleteIncome()
   const update = useUpdateIncome()
+  const cancelRec = useCancelRecurringIncome()
   const { toast } = useToast()
   const pageSize = usePageSize()
   const today = todayISO()
+
+  // Generate any pending fixed (recurring) incomes when this page opens.
+  useReconcileRecurringIncomes()
 
   const [query, setQuery] = useState('')
   const [filters, setFilters] = useState<FilterValue>({})
@@ -52,6 +59,7 @@ export function ReceitasPage() {
   const [deleting, setDeleting] = useState<Income | null>(null)
   const [details, setDetails] = useState<Income | null>(null)
   const [attaching, setAttaching] = useState<Income | null>(null)
+  const [cancelingRec, setCancelingRec] = useState<Income | null>(null)
 
   const catMap = useMemo(
     () => new Map((categories ?? []).map((c) => [c.id, c])),
@@ -146,6 +154,16 @@ export function ReceitasPage() {
       toast(err instanceof Error ? err.message : 'Não foi possível atualizar.', 'error')
     }
   }
+  async function confirmCancelRec() {
+    if (!cancelingRec?.recurring_income_id) return
+    try {
+      await cancelRec.mutateAsync(cancelingRec.recurring_income_id)
+      toast('Recorrência cancelada. As receitas já geradas foram mantidas.')
+      setCancelingRec(null)
+    } catch (err) {
+      toast(err instanceof Error ? err.message : 'Não foi possível cancelar.', 'error')
+    }
+  }
 
   function detailRows(r: Income): DetailRow[] {
     const cat = r.category_id ? catMap.get(r.category_id) : null
@@ -168,6 +186,7 @@ export function ReceitasPage() {
     })
     list.push({ label: r.date > today ? 'Previsto para' : 'Recebido em', value: formatDisplayDate(r.date) })
     if (r.notes) list.push({ label: 'Observações', value: r.notes })
+    if (r.recurring_income_id) list.push({ label: 'Origem', value: 'Receita fixa (recorrente)' })
     list.push({ label: 'Criado em', value: formatDisplayDate(r.created_at.slice(0, 10)) })
     list.push({ label: 'Atualizado em', value: formatDisplayDate(r.updated_at.slice(0, 10)) })
     return list
@@ -181,6 +200,9 @@ export function ReceitasPage() {
         ? [{ label: 'Marcar como recebida', icon: CalendarCheck, onClick: () => markReceived(r) }]
         : []),
       { label: 'Anexar documentos', icon: Paperclip, onClick: () => setAttaching(r) },
+      ...(r.recurring_income_id
+        ? [{ label: 'Cancelar recorrência', icon: CalendarX, onClick: () => setCancelingRec(r) }]
+        : []),
       { label: 'Excluir', icon: Trash2, onClick: () => setDeleting(r), danger: true },
     ]
   }
@@ -283,7 +305,10 @@ export function ReceitasPage() {
                   <div key={r.id} className="px-4 transition-colors hover:bg-surface-2/60">
                     {/* Desktop */}
                     <div className="hidden items-center gap-3 py-3 sm:grid sm:grid-cols-[1.7fr_1fr_1fr_0.9fr_44px]">
-                      <div className="min-w-0 truncate font-semibold text-ink">{r.description}</div>
+                      <div className="flex min-w-0 items-center gap-1.5 font-semibold text-ink">
+                        <span className="truncate">{r.description}</span>
+                        {r.recurring_income_id && <Repeat className="size-3 shrink-0 text-muted" aria-label="Recorrente" />}
+                      </div>
                       <div className="min-w-0">{categoryCell}</div>
                       <div className="truncate text-sm text-muted">{acc?.name ?? '—'}</div>
                       <div className="text-right font-mono text-[15px] font-semibold tnum text-positive">
@@ -295,7 +320,10 @@ export function ReceitasPage() {
                     {/* Mobile */}
                     <div className="flex items-center gap-3 py-3 sm:hidden">
                       <div className="min-w-0 flex-1">
-                        <div className="truncate font-semibold text-ink">{r.description}</div>
+                        <div className="flex items-center gap-1.5 font-semibold text-ink">
+                          <span className="truncate">{r.description}</span>
+                          {r.recurring_income_id && <Repeat className="size-3 shrink-0 text-muted" aria-label="Recorrente" />}
+                        </div>
                         <div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-0.5">
                           {categoryCell}
                           <span className="font-mono text-[11px] text-faint">{formatDisplayDate(r.date)}</span>
@@ -379,6 +407,15 @@ export function ReceitasPage() {
         title="Excluir receita"
         message={`Excluir "${deleting?.description}"? Essa ação não pode ser desfeita.`}
         loading={del.isPending}
+      />
+
+      <ConfirmDialog
+        open={!!cancelingRec}
+        onClose={() => setCancelingRec(null)}
+        onConfirm={confirmCancelRec}
+        title="Cancelar recorrência"
+        message={`Parar de gerar "${cancelingRec?.description}" automaticamente todo mês? As receitas já geradas continuam registradas.`}
+        loading={cancelRec.isPending}
       />
     </div>
   )

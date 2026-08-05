@@ -56,6 +56,22 @@ export type Income = {
   amount_cents: number
   date: string
   notes: string | null
+  recurring_income_id: string | null
+  created_at: string
+  updated_at: string
+}
+
+export type RecurringIncome = {
+  id: string
+  user_id: string
+  description: string
+  amount_cents: number
+  category_id: string | null
+  account_id: string | null
+  day_of_month: number
+  start_date: string
+  end_date: string | null
+  active: boolean
   created_at: string
   updated_at: string
 }
