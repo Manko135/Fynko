@@ -65,10 +65,11 @@ export function useBalances() {
       today,
     )
 
-    // Monthly balance: income already RECEIVED this month (a salary scheduled
-    // for later in the month doesn't count until its date arrives) minus every
-    // expense that BELONGS to this month — its payment month if paid, otherwise
-    // its due month (so a bill due this month, even unpaid, already reduces it).
+    // Monthly balance — only what's already REALIZED this month:
+    //  income: received so far (a salary scheduled for later doesn't count yet);
+    //  expenses: paid this month, plus bills of this month that have ALREADY
+    //  come due (unpaid but past/at their due date). A bill that only falls due
+    //  later this month isn't counted until its due date arrives.
     const curMonth = monthKey(today)
     let receitaMes = 0
     let despesaMes = 0
@@ -76,7 +77,11 @@ export function useBalances() {
       if (monthKey(i.date) === curMonth && i.date <= today) receitaMes += i.amount_cents
     }
     for (const e of expenses ?? []) {
-      if (monthKey(e.payment_date ?? e.due_date) === curMonth) despesaMes += e.amount_cents
+      if (e.payment_date) {
+        if (monthKey(e.payment_date) === curMonth) despesaMes += e.amount_cents
+      } else if (monthKey(e.due_date) === curMonth && e.due_date <= today) {
+        despesaMes += e.amount_cents
+      }
     }
     const saldoMesCents = receitaMes - despesaMes
 
