@@ -65,14 +65,15 @@ export function useBalances() {
       today,
     )
 
-    // Monthly balance (competência): income of this month minus every expense
-    // that BELONGS to this month — its payment month if paid, otherwise its due
-    // month. So a bill due this month that's still unpaid already reduces it.
+    // Monthly balance: income already RECEIVED this month (a salary scheduled
+    // for later in the month doesn't count until its date arrives) minus every
+    // expense that BELONGS to this month — its payment month if paid, otherwise
+    // its due month (so a bill due this month, even unpaid, already reduces it).
     const curMonth = monthKey(today)
     let receitaMes = 0
     let despesaMes = 0
     for (const i of incomes ?? []) {
-      if (monthKey(i.date) === curMonth) receitaMes += i.amount_cents
+      if (monthKey(i.date) === curMonth && i.date <= today) receitaMes += i.amount_cents
     }
     for (const e of expenses ?? []) {
       if (monthKey(e.payment_date ?? e.due_date) === curMonth) despesaMes += e.amount_cents
