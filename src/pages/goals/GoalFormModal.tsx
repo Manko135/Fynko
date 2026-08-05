@@ -13,7 +13,7 @@ import type { Goal } from '@/types/domain'
 import type { GoalInput } from '@/services/goals'
 
 function empty(): GoalInput {
-  return { name: '', target_cents: 0, due_date: null, color: DEFAULT_COLOR, icon: DEFAULT_GOAL_ICON }
+  return { name: '', target_cents: 0, due_date: null, color: DEFAULT_COLOR, icon: DEFAULT_GOAL_ICON, notes: null }
 }
 
 export function GoalFormModal({
@@ -40,6 +40,7 @@ export function GoalFormModal({
             due_date: editing.due_date,
             color: editing.color ?? DEFAULT_COLOR,
             icon: editing.icon ?? DEFAULT_GOAL_ICON,
+            notes: editing.notes,
           }
         : empty(),
     )
@@ -140,6 +141,13 @@ export function GoalFormModal({
             })}
           </div>
         </div>
+
+        <TextField
+          label="Observações"
+          value={form.notes ?? ''}
+          onChange={(e) => setForm({ ...form, notes: e.target.value || null })}
+          placeholder="Opcional"
+        />
       </div>
     </Modal>
   )

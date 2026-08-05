@@ -13,6 +13,7 @@ export type BudgetInput = {
   category_id: string | null
   card_id: string | null
   amount_cents: number
+  notes: string | null
 }
 
 export async function listBudgets(): Promise<Budget[]> {

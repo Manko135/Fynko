@@ -36,6 +36,7 @@ export function BudgetFormModal({
   const [categoryId, setCategoryId] = useState('')
   const [cardId, setCardId] = useState('')
   const [amount, setAmount] = useState(0)
+  const [notes, setNotes] = useState('')
 
   useEffect(() => {
     if (!open) return
@@ -45,12 +46,14 @@ export function BudgetFormModal({
       setCategoryId(editing.category_id ?? '')
       setCardId(editing.card_id ?? '')
       setAmount(editing.amount_cents)
+      setNotes(editing.notes ?? '')
     } else {
       setTitle('')
       setScope('categoria')
       setCategoryId('')
       setCardId('')
       setAmount(0)
+      setNotes('')
     }
   }, [open, editing])
 
@@ -66,6 +69,7 @@ export function BudgetFormModal({
       category_id: scope === 'categoria' ? categoryId : null,
       card_id: scope === 'cartao' ? cardId : null,
       amount_cents: amount,
+      notes: notes.trim() || null,
     }
     try {
       if (editing) await update.mutateAsync({ id: editing.id, patch: payload })
@@ -143,6 +147,13 @@ export function BudgetFormModal({
         )}
 
         <CurrencyInput label="Limite mensal" value={amount} onChange={setAmount} />
+
+        <TextField
+          label="Observações"
+          value={notes}
+          onChange={(e) => setNotes(e.target.value)}
+          placeholder="Opcional"
+        />
       </div>
     </Modal>
   )

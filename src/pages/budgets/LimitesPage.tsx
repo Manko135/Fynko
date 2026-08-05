@@ -1,7 +1,8 @@
 import { useMemo, useState } from 'react'
-import { Gauge, Pencil, Plus, Trash2 } from 'lucide-react'
+import { Gauge, Pencil, Plus, StickyNote, Trash2 } from 'lucide-react'
 import { Button } from '@/components/ui/Button'
 import { ConfirmDialog } from '@/components/ui/ConfirmDialog'
+import { NotesModal } from '@/components/ui/NotesModal'
 import { BudgetFormModal } from './BudgetFormModal'
 import { useBudgets, useBudgetUsage, useDeleteBudget } from '@/hooks/useBudgets'
 import { useCategories } from '@/hooks/useCategories'
@@ -39,6 +40,7 @@ export function LimitesPage() {
   const [formOpen, setFormOpen] = useState(false)
   const [editing, setEditing] = useState<Budget | null>(null)
   const [deleting, setDeleting] = useState<Budget | null>(null)
+  const [viewingNotes, setViewingNotes] = useState<Budget | null>(null)
 
   const catName = useMemo(() => new Map((categories ?? []).map((c) => [c.id, c.name])), [categories])
   const cardName = useMemo(() => new Map((cards ?? []).map((c) => [c.id, c.name])), [cards])
@@ -102,6 +104,11 @@ export function LimitesPage() {
                   </div>
                 </div>
                 <div className="flex gap-1 opacity-100 transition focus-within:opacity-100 sm:opacity-0 sm:group-hover:opacity-100">
+                  {budget.notes?.trim() && (
+                    <button type="button" aria-label="Ver observações" onClick={() => setViewingNotes(budget)} className="grid size-8 place-items-center rounded-lg text-muted hover:bg-surface-2">
+                      <StickyNote className="size-4" />
+                    </button>
+                  )}
                   <button type="button" aria-label="Editar" onClick={() => { setEditing(budget); setFormOpen(true) }} className="grid size-8 place-items-center rounded-lg text-muted hover:bg-surface-2">
                     <Pencil className="size-4" />
                   </button>
@@ -162,6 +169,12 @@ export function LimitesPage() {
         title="Excluir limite"
         message="Excluir este limite? O acompanhamento deste mês deixa de aparecer."
         loading={del.isPending}
+      />
+      <NotesModal
+        open={!!viewingNotes}
+        onClose={() => setViewingNotes(null)}
+        title={viewingNotes ? `Observações · ${labelFor(viewingNotes)}` : 'Observações'}
+        notes={viewingNotes?.notes}
       />
     </div>
   )

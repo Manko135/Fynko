@@ -1,7 +1,8 @@
 import { useMemo, useState } from 'react'
-import { CheckCircle2, Pencil, Plus, Target, Trash2, Wallet } from 'lucide-react'
+import { CheckCircle2, Pencil, Plus, StickyNote, Target, Trash2, Wallet } from 'lucide-react'
 import { Button } from '@/components/ui/Button'
 import { ConfirmDialog } from '@/components/ui/ConfirmDialog'
+import { NotesModal } from '@/components/ui/NotesModal'
 import { GoalFormModal } from './GoalFormModal'
 import { ContributionModal } from './ContributionModal'
 import { useGoals, useContributions, useDeleteGoal } from '@/hooks/useGoals'
@@ -18,12 +19,14 @@ function GoalCard({
   onEdit,
   onDelete,
   onContribute,
+  onViewNotes,
 }: {
   goal: Goal
   accumulated: number
   onEdit: () => void
   onDelete: () => void
   onContribute: () => void
+  onViewNotes: () => void
 }) {
   const color = goal.color ?? DEFAULT_COLOR
   const Icon = goalIcon(goal.icon)
@@ -58,6 +61,16 @@ function GoalCard({
           </div>
         </div>
         <div className="flex gap-1">
+          {goal.notes?.trim() && (
+            <button
+              type="button"
+              aria-label="Ver observações"
+              onClick={onViewNotes}
+              className="grid size-8 place-items-center rounded-lg text-muted hover:bg-surface-2"
+            >
+              <StickyNote className="size-4" />
+            </button>
+          )}
           <button
             type="button"
             aria-label="Editar meta"
@@ -120,6 +133,7 @@ export function MetasPage() {
   const [editing, setEditing] = useState<Goal | null>(null)
   const [deleting, setDeleting] = useState<Goal | null>(null)
   const [contributing, setContributing] = useState<Goal | null>(null)
+  const [viewingNotes, setViewingNotes] = useState<Goal | null>(null)
 
   const accumulatedByGoal = useMemo(() => {
     const map = new Map<string, number>()
@@ -198,6 +212,7 @@ export function MetasPage() {
               }}
               onDelete={() => setDeleting(g)}
               onContribute={() => setContributing(g)}
+              onViewNotes={() => setViewingNotes(g)}
             />
           ))}
         </div>
@@ -220,6 +235,12 @@ export function MetasPage() {
         title="Excluir meta"
         message={`Excluir "${deleting?.name}"? Os aportes registrados também serão removidos.`}
         loading={del.isPending}
+      />
+      <NotesModal
+        open={!!viewingNotes}
+        onClose={() => setViewingNotes(null)}
+        title={viewingNotes ? `Observações · ${viewingNotes.name}` : 'Observações'}
+        notes={viewingNotes?.notes}
       />
     </div>
   )

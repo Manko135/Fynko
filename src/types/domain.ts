@@ -105,6 +105,7 @@ export type Goal = {
   due_date: string | null
   color: string | null
   icon: string | null
+  notes: string | null
   created_at: string
   updated_at: string
 }
@@ -166,6 +167,7 @@ export type Budget = {
   category_id: string | null
   card_id: string | null
   amount_cents: number
+  notes: string | null
   created_at: string
   updated_at: string
 }

@@ -13,6 +13,7 @@ export type GoalInput = {
   due_date: string | null
   color: string | null
   icon: string | null
+  notes: string | null
 }
 
 export async function listGoals(): Promise<Goal[]> {
