@@ -1,5 +1,4 @@
 import { supabase } from '@/services/supabase'
-import { todayISO } from '@/lib/dates'
 import type { Expense } from '@/types/domain'
 
 export type InvoiceParcel = {
@@ -87,9 +86,12 @@ export async function settleExpenses(
 }
 
 /**
- * Parcel a card invoice instead of paying it now: the invoice's expenses are
- * settled (financed → leave the card's open balance) and one installment
- * expense is created per parcel, grouped so the user can identify them.
+ * Parcel a card invoice instead of paying it now. The invoice's original
+ * expenses are REPLACED by the installments (removed so the amount isn't counted
+ * twice), and one installment expense is created per parcel, grouped so the user
+ * can identify them. Removing the originals is safe: a subscription's next_due
+ * has already advanced past the current cycle, so the reconcile won't recreate
+ * the charge that was just parcelled.
  */
 export async function parcelInvoice(
   invoiceExpenseIds: string[],
@@ -97,11 +99,11 @@ export async function parcelInvoice(
 ): Promise<void> {
   const user_id = await currentUserId()
   if (invoiceExpenseIds.length) {
-    const { error: settleErr } = await supabase
+    const { error: delErr } = await supabase
       .from('expenses')
-      .update({ payment_date: todayISO(), account_id: null })
+      .delete()
       .in('id', invoiceExpenseIds)
-    if (settleErr) throw settleErr
+    if (delErr) throw delErr
   }
   const group = crypto.randomUUID()
   const rows = parcels.map((p, i) => ({
