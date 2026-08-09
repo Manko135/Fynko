@@ -86,13 +86,18 @@ function linkedExpense(
  * Bring ONE subscription's charges in line with reality (the single source of
  * truth used by create, update and the periodic reconcile — same code path on
  * mobile and desktop, so behaviour can never diverge):
- *  - a charge is only created once its occurrence date has ARRIVED (due_date <=
- *    today), so a future subscription never lands on the card / consumes limit;
- *  - a retroactive date within the current cycle is charged immediately;
+ *  - every occurrence already due (due_date <= today) has a charge — a
+ *    retroactive/current one is created immediately;
+ *  - the NEXT upcoming occurrence (the first due_date > today) is materialized
+ *    too, so an approaching subscription shows up in Despesas ahead of time as
+ *    "A vencer"/"Em aberto" (its status is derived from the due date). A future
+ *    charge on a CARD is still kept off the invoice/limit until its date arrives
+ *    — that exclusion lives in summarizeCard, not here;
  *  - occurrences are keyed by (subscription_id, due_date), so re-running (mount,
  *    edit, mobile then desktop) never duplicates a charge;
- *  - any UNPAID charge sitting in the future is removed (cleans up early ones);
+ *  - stray unpaid charges beyond the upcoming occurrence are cleaned up;
  *  - paused/cancelled subscriptions have their upcoming unpaid charges dropped.
+ *  - next_due is kept pointing at the upcoming occurrence.
  * Returns true when something changed.
  */
 async function processSubscription(
@@ -108,46 +113,67 @@ async function processSubscription(
   const charges = rows ?? []
 
   if (sub.status !== 'ativa') {
-    const upcoming = charges.filter((c) => !c.payment_date)
-    if (upcoming.length === 0) return false
-    await supabase.from('expenses').delete().in('id', upcoming.map((c) => c.id))
+    const unpaid = charges.filter((c) => !c.payment_date)
+    if (unpaid.length === 0) return false
+    await supabase.from('expenses').delete().in('id', unpaid.map((c) => c.id))
     return true
   }
 
+  // Occurrences we want materialized: every one already due (<= today) plus the
+  // first upcoming one (> today). next_due lands on that upcoming occurrence.
+  const wanted: string[] = []
+  let cursor = sub.next_due
+  while (cursor <= today) {
+    wanted.push(cursor)
+    cursor = advanceDue(cursor, sub.frequency, sub.interval_days)
+  }
+  wanted.push(cursor)
+  const upcoming = cursor
+
   let changed = false
 
-  // A subscription is not charged before its date: drop unpaid FUTURE charges.
-  const futureUnpaid = charges.filter((c) => !c.payment_date && c.due_date > today)
-  if (futureUnpaid.length) {
-    await supabase.from('expenses').delete().in('id', futureUnpaid.map((c) => c.id))
+  // Rows to remove: stray unpaid FUTURE charges other than the upcoming one
+  // (leftovers from an earlier schedule/edit), plus any duplicate unpaid charge
+  // that shares a due_date with another (self-heals accidental double-inserts —
+  // e.g. two reconciles racing). Past-due unpaid charges are kept as history;
+  // one charge per due_date survives.
+  const remove: Array<{ id: string }> = []
+  const seen = new Set<string>()
+  for (const c of charges) {
+    if (c.payment_date) continue
+    if (c.due_date > today && c.due_date !== upcoming) {
+      remove.push(c)
+      continue
+    }
+    if (seen.has(c.due_date)) remove.push(c)
+    else seen.add(c.due_date)
+  }
+  if (remove.length) {
+    await supabase.from('expenses').delete().in('id', remove.map((c) => c.id))
     changed = true
   }
 
-  // Create the charge for each occurrence already due (<= today), no duplicates.
-  const have = new Set(charges.filter((c) => c.due_date <= today).map((c) => c.due_date))
-  const toInsert: Array<Record<string, unknown>> = []
-  let nextDue = sub.next_due
-  while (nextDue <= today) {
-    if (!have.has(nextDue)) {
-      toInsert.push(
-        linkedExpense(userId, categoryId, sub.id, {
-          name: sub.name,
-          amount_cents: sub.amount_cents,
-          account_id: sub.account_id,
-          card_id: sub.card_id,
-          next_due: nextDue,
-        }),
-      )
-      have.add(nextDue)
-    }
-    nextDue = advanceDue(nextDue, sub.frequency, sub.interval_days)
-  }
+  // Create any wanted occurrence that doesn't already have a surviving charge.
+  const removed = new Set(remove.map((c) => c.id))
+  const have = new Set(charges.filter((c) => !removed.has(c.id)).map((c) => c.due_date))
+  const toInsert = wanted
+    .filter((d) => !have.has(d))
+    .map((d) =>
+      linkedExpense(userId, categoryId, sub.id, {
+        name: sub.name,
+        amount_cents: sub.amount_cents,
+        account_id: sub.account_id,
+        card_id: sub.card_id,
+        next_due: d,
+      }),
+    )
   if (toInsert.length) {
     await supabase.from('expenses').insert(toInsert)
     changed = true
   }
-  if (nextDue !== sub.next_due) {
-    await supabase.from('subscriptions').update({ next_due: nextDue }).eq('id', sub.id)
+
+  if (upcoming !== sub.next_due) {
+    await supabase.from('subscriptions').update({ next_due: upcoming }).eq('id', sub.id)
     changed = true
   }
   return changed
@@ -226,11 +252,26 @@ export async function deleteSubscription(id: string): Promise<void> {
 
 /**
  * Periodic reconcile (runs when the Assinaturas module mounts, on any device):
- * generate the charges whose dates have arrived and clean up early ones, for
- * every subscription. Idempotent — safe to run repeatedly and from mobile and
- * desktop without duplicating anything. Returns how many were changed.
+ * generate the charges whose dates have arrived (and the next upcoming one) and
+ * clean up strays, for every subscription. Idempotent — safe to run repeatedly
+ * and from mobile and desktop without duplicating anything. Returns how many
+ * were changed.
  */
+let reconciling: Promise<number> | null = null
 export async function reconcileSubscriptions(): Promise<number> {
+  // Concurrent callers (React StrictMode double-invokes the mount effect; two
+  // tabs; a remount) share ONE run, so a brand-new charge can't be inserted
+  // twice before either read sees the other.
+  if (reconciling) return reconciling
+  reconciling = runReconcile()
+  try {
+    return await reconciling
+  } finally {
+    reconciling = null
+  }
+}
+
+async function runReconcile(): Promise<number> {
   const user_id = await currentUserId()
   const category_id = await assinaturasCategoryId(user_id)
   const subs = await listSubscriptions()

@@ -54,6 +54,7 @@ type CardExpense = {
   amountCents: Cents
   dueDate: ISODate
   paymentDate: ISODate | null | undefined
+  subscriptionId?: string | null
 }
 
 /** Is `due` inside the half-open window (lower, upper]? */
@@ -62,16 +63,36 @@ function inWindow(due: ISODate, lower: ISODate, upper: ISODate): boolean {
 }
 
 /**
+ * A subscription charge dated in the FUTURE is materialized as an expense (so it
+ * shows in Despesas ahead of time) but must NOT hit the card yet: it doesn't
+ * consume limit and isn't on the invoice until its due date arrives. Regular
+ * card expenses and installments commit the card as soon as they exist.
+ */
+function futureSubscriptionCharge(
+  e: { dueDate: ISODate; subscriptionId?: string | null },
+  today: ISODate,
+): boolean {
+  return !!e.subscriptionId && diffDays(e.dueDate, today) > 0
+}
+
+/**
  * The unpaid expenses that make up the current invoice (due in the current
  * window). Used by "pagar fatura" to know which rows to settle. Generic over
  * the row shape so callers keep their ids/extra fields.
  */
 export function currentInvoiceExpenses<
-  T extends { dueDate: ISODate; paymentDate: ISODate | null | undefined },
+  T extends {
+    dueDate: ISODate
+    paymentDate: ISODate | null | undefined
+    subscriptionId?: string | null
+  },
 >(closingDay: number, expenses: T[], today: ISODate): T[] {
   const w = invoiceWindows(closingDay, today)
   return expenses.filter(
-    (e) => !e.paymentDate && inWindow(e.dueDate, w.prevClosing, w.nextClosing),
+    (e) =>
+      !e.paymentDate &&
+      !futureSubscriptionCharge(e, today) &&
+      inWindow(e.dueDate, w.prevClosing, w.nextClosing),
   )
 }
 
@@ -107,6 +128,7 @@ export function summarizeCard(
 
   for (const e of expenses) {
     if (e.paymentDate) continue // paid → no longer on the card's open balance
+    if (futureSubscriptionCharge(e, today)) continue // not charged to the card yet
     usedLimitCents += e.amountCents
     if (inWindow(e.dueDate, windows.prevClosing, windows.nextClosing)) {
       currentInvoiceCents += e.amountCents

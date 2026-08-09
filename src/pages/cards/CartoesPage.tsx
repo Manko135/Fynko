@@ -38,6 +38,7 @@ function CardFace({
     amountCents: e.amount_cents,
     dueDate: e.due_date,
     paymentDate: e.payment_date,
+    subscriptionId: e.subscription_id,
   }))
   const summary = summarizeCard(card.limit_cents, card.closing_day, rows, today)
   const invoiceItems = currentInvoiceExpenses(card.closing_day, rows, today)

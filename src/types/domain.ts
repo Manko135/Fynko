@@ -92,6 +92,7 @@ export type Expense = {
   installment_group: string | null
   installment_index: number | null
   installment_count: number | null
+  subscription_id: string | null
   notes: string | null
   created_at: string
   updated_at: string
