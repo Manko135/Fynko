@@ -1,5 +1,12 @@
 import { supabase } from '@/services/supabase'
+import { todayISO } from '@/lib/dates'
 import type { Expense } from '@/types/domain'
+
+export type InvoiceParcel = {
+  description: string
+  amount_cents: number
+  due_date: string
+}
 
 async function currentUserId(): Promise<string> {
   const { data, error } = await supabase.auth.getUser()
@@ -76,5 +83,41 @@ export async function settleExpenses(
     .from('expenses')
     .update({ payment_date: paymentDate, account_id: accountId })
     .in('id', ids)
+  if (error) throw error
+}
+
+/**
+ * Parcel a card invoice instead of paying it now: the invoice's expenses are
+ * settled (financed → leave the card's open balance) and one installment
+ * expense is created per parcel, grouped so the user can identify them.
+ */
+export async function parcelInvoice(
+  invoiceExpenseIds: string[],
+  parcels: InvoiceParcel[],
+): Promise<void> {
+  const user_id = await currentUserId()
+  if (invoiceExpenseIds.length) {
+    const { error: settleErr } = await supabase
+      .from('expenses')
+      .update({ payment_date: todayISO(), account_id: null })
+      .in('id', invoiceExpenseIds)
+    if (settleErr) throw settleErr
+  }
+  const group = crypto.randomUUID()
+  const rows = parcels.map((p, i) => ({
+    user_id,
+    description: p.description,
+    amount_cents: p.amount_cents,
+    due_date: p.due_date,
+    payment_date: null,
+    type: 'parcelada' as const,
+    installment_group: group,
+    installment_index: i + 1,
+    installment_count: parcels.length,
+    account_id: null,
+    card_id: null,
+    category_id: null,
+  }))
+  const { error } = await supabase.from('expenses').insert(rows)
   if (error) throw error
 }

@@ -8,8 +8,10 @@ import {
   deleteExpenseGroup,
   insertExpenses,
   listExpenses,
+  parcelInvoice,
   settleExpenses,
   updateExpense,
+  type InvoiceParcel,
 } from '@/services/expenses'
 
 const KEY = ['expenses']
@@ -68,5 +70,13 @@ export function useSettleInvoice() {
       accountId: string
       paymentDate: string
     }) => settleExpenses(ids, accountId, paymentDate),
+  )
+}
+
+/** Parcel a card invoice: settle it and create the installment expenses. */
+export function useParcelInvoice() {
+  return useExpenseMutation(
+    ({ ids, parcels }: { ids: string[]; parcels: InvoiceParcel[] }) =>
+      parcelInvoice(ids, parcels),
   )
 }
