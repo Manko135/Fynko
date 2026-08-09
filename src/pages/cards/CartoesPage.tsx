@@ -40,8 +40,8 @@ function CardFace({
     paymentDate: e.payment_date,
     subscriptionId: e.subscription_id,
   }))
-  const summary = summarizeCard(card.limit_cents, card.closing_day, rows, today)
-  const invoiceItems = currentInvoiceExpenses(card.closing_day, rows, today)
+  const summary = summarizeCard(card.limit_cents, card.closing_day, card.due_day, rows, today)
+  const invoiceItems = currentInvoiceExpenses(card.closing_day, card.due_day, rows, today)
   const usedPct =
     card.limit_cents > 0
       ? Math.min(100, (summary.usedLimitCents / card.limit_cents) * 100)
