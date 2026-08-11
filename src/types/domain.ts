@@ -87,6 +87,8 @@ export type Expense = {
   card_id: string | null
   amount_cents: number
   due_date: string
+  /** Card purchases: when the purchase was made (due_date holds the invoice due). */
+  purchase_date: string | null
   payment_date: string | null
   type: ExpenseType
   installment_group: string | null

@@ -13,8 +13,9 @@ import { StagedAttachments } from '@/components/attachments/StagedAttachments'
 import { CategorySelectField } from '@/components/categories/CategorySelectField'
 import { uploadAttachment } from '@/services/attachments'
 import { generateInstallments } from '@/lib/finance/installments'
+import { invoiceDueForPurchase } from '@/lib/finance/invoice'
 import { formatBRL } from '@/lib/money'
-import { todayISO } from '@/lib/dates'
+import { formatDisplayDate, todayISO } from '@/lib/dates'
 import { cn } from '@/utils/cn'
 import type { Expense, ExpenseType } from '@/types/domain'
 
@@ -92,7 +93,12 @@ export function ExpenseFormModal({
       setDescription(editing.description)
       setTipo(editing.type)
       setAmount(editing.amount_cents)
-      setDueDate(editing.due_date)
+      // For a card expense the date field is the PURCHASE date; the invoice due
+      // (due_date) is derived from it. Legacy rows without purchase_date fall
+      // back to due_date so editing them still works.
+      setDueDate(
+        editing.card_id ? editing.purchase_date ?? editing.due_date : editing.due_date,
+      )
       setPayVia(editing.card_id ? 'cartao' : 'conta')
       setAccountId(editing.account_id ?? '')
       setCardId(editing.card_id ?? '')
@@ -118,6 +124,17 @@ export function ExpenseFormModal({
 
   const isParcelada = tipo === 'parcelada' && !editing
   const saving = create.isPending || update.isPending
+
+  const selectedCard = useMemo(
+    () => (cards ?? []).find((c) => c.id === cardId),
+    [cards, cardId],
+  )
+  // Card mode: the entered date is the purchase date; the invoice vencimento is
+  // derived from the card's closing/due days. Shown as a hint, stored in due_date.
+  const cardInvoiceDue = useMemo(() => {
+    if (payVia !== 'cartao' || !selectedCard || !dueDate) return null
+    return invoiceDueForPurchase(dueDate, selectedCard.closing_day, selectedCard.due_day)
+  }, [payVia, selectedCard, dueDate])
 
   async function uploadStaged(expenseId: string | undefined) {
     if (!expenseId || stagedFiles.length === 0) return
@@ -161,6 +178,14 @@ export function ExpenseFormModal({
     // invoice is paid (a separate action). Cash rule stays intact.
     const payment_date =
       !isParcelada && isPaid && payVia === 'conta' ? paymentDate : null
+    // Card mode: the entered date is the purchase date and due_date becomes the
+    // invoice vencimento (auto). Non-card: due_date is the entered date as before.
+    const isCard = payVia === 'cartao'
+    const purchase_date = isCard ? dueDate : null
+    const resolvedDue =
+      isCard && selectedCard
+        ? invoiceDueForPurchase(dueDate, selectedCard.closing_day, selectedCard.due_day)
+        : dueDate
 
     try {
       if (editing) {
@@ -170,7 +195,8 @@ export function ExpenseFormModal({
             description,
             type: tipo,
             amount_cents: amount,
-            due_date: dueDate,
+            due_date: resolvedDue,
+            purchase_date,
             account_id,
             card_id,
             category_id,
@@ -181,12 +207,13 @@ export function ExpenseFormModal({
         toast('Despesa atualizada.')
       } else if (isParcelada) {
         const group = crypto.randomUUID()
-        const rows = generateInstallments(amount, installments, dueDate).map(
+        const rows = generateInstallments(amount, installments, resolvedDue).map(
           (p) => ({
             description,
             type: 'parcelada' as const,
             amount_cents: p.amountCents,
             due_date: p.dueDate,
+            purchase_date,
             payment_date: null,
             account_id,
             card_id,
@@ -206,7 +233,8 @@ export function ExpenseFormModal({
             description,
             type: tipo,
             amount_cents: amount,
-            due_date: dueDate,
+            due_date: resolvedDue,
+            purchase_date,
             payment_date,
             account_id,
             card_id,
@@ -261,10 +289,23 @@ export function ExpenseFormModal({
             onChange={setAmount}
           />
           <TextField
-            label={isParcelada ? '1º vencimento' : 'Vencimento'}
+            label={
+              payVia === 'cartao'
+                ? isParcelada
+                  ? 'Data da 1ª compra'
+                  : 'Data'
+                : isParcelada
+                  ? '1º vencimento'
+                  : 'Vencimento'
+            }
             type="date"
             value={dueDate}
             onChange={(e) => setDueDate(e.target.value)}
+            hint={
+              payVia === 'cartao' && cardInvoiceDue
+                ? `Fatura vence em ${formatDisplayDate(cardInvoiceDue)}`
+                : undefined
+            }
           />
         </div>
 

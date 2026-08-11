@@ -4,7 +4,7 @@ import { useExpenses } from '@/hooks/useExpenses'
 import { useCategories } from '@/hooks/useCategories'
 import { useAccounts } from '@/hooks/useAccounts'
 import { useCards } from '@/hooks/useCards'
-import { expenseStatus, type ExpenseStatus } from '@/lib/finance/status'
+import { expenseStatusOf, type ExpenseStatus } from '@/lib/finance/status'
 import { monthKey, todayISO } from '@/lib/dates'
 import type { FilterValue } from '@/components/ui/FilterBar'
 
@@ -21,7 +21,7 @@ export type ReportRow = {
 }
 
 const STATUS_LABEL: Record<ExpenseStatus, string> = {
-  pago: 'Pago', vencido: 'Vencido', a_vencer: 'A vencer', em_aberto: 'Em aberto',
+  pago: 'Pago', vencido: 'Vencido', a_vencer: 'A vencer', em_aberto: 'Em aberto', cartao: 'Cartão',
 }
 const MONTHS = ['jan', 'fev', 'mar', 'abr', 'mai', 'jun', 'jul', 'ago', 'set', 'out', 'nov', 'dez']
 
@@ -60,7 +60,7 @@ export function useReportData(period: Period, filters: FilterValue = {}) {
       if (fCat.length && !(e.category_id && fCat.includes(e.category_id))) return false
       if (fAcc.length && !(e.account_id && fAcc.includes(e.account_id))) return false
       if (fCard.length && !(e.card_id && fCard.includes(e.card_id))) return false
-      if (fStatus.length && !fStatus.includes(expenseStatus(e.due_date, e.payment_date, today))) return false
+      if (fStatus.length && !fStatus.includes(expenseStatusOf(e, today))) return false
       return true
     }
 
@@ -86,7 +86,7 @@ export function useReportData(period: Period, filters: FilterValue = {}) {
         kind: 'Despesa', date: e.payment_date ?? e.due_date, description: e.description,
         category: e.category_id ? catMap.get(e.category_id)?.name ?? '—' : '—',
         origin: e.card_id ? cardMap.get(e.card_id)?.name ?? '—' : e.account_id ? accMap.get(e.account_id)?.name ?? '—' : '—',
-        status: STATUS_LABEL[expenseStatus(e.due_date, e.payment_date, today)],
+        status: STATUS_LABEL[expenseStatusOf(e, today)],
         amountCents: e.amount_cents,
       })
     }
@@ -134,7 +134,7 @@ export function useReportData(period: Period, filters: FilterValue = {}) {
     // Por status
     const byStatusMap = new Map<string, number>()
     for (const e of expRows) {
-      const st = STATUS_LABEL[expenseStatus(e.due_date, e.payment_date, today)]
+      const st = STATUS_LABEL[expenseStatusOf(e, today)]
       byStatusMap.set(st, (byStatusMap.get(st) ?? 0) + e.amount_cents)
     }
     const byStatus = [...byStatusMap.entries()].map(([status, total]) => ({ status, total }))

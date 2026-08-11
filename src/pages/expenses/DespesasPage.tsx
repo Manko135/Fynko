@@ -39,7 +39,7 @@ import { usePageSize } from '@/hooks/usePageSize'
 import { useToast } from '@/contexts/ToastContext'
 import { formatBRL } from '@/lib/money'
 import { formatDisplayDate, todayISO } from '@/lib/dates'
-import { expenseStatus, type ExpenseStatus } from '@/lib/finance/status'
+import { expenseStatusOf, type ExpenseStatus } from '@/lib/finance/status'
 import type { Expense } from '@/types/domain'
 
 type SortKey = 'descricao' | 'categoria' | 'vencimento' | 'valor'
@@ -124,6 +124,7 @@ export function DespesasPage() {
           { value: 'vencido', label: 'Vencido' },
           { value: 'a_vencer', label: 'A vencer' },
           { value: 'em_aberto', label: 'Em aberto' },
+          { value: 'cartao', label: 'Cartão' },
         ],
       },
       {
@@ -164,7 +165,7 @@ export function DespesasPage() {
       if (accs.length && !(r.account_id && accs.includes(r.account_id))) return false
       if (cardsF.length && !(r.card_id && cardsF.includes(r.card_id))) return false
       if (status.length) {
-        const st = expenseStatus(r.due_date, r.payment_date, today)
+        const st = expenseStatusOf(r, today)
         if (!status.includes(st)) return false
       }
       if (!q) return true
@@ -177,17 +178,16 @@ export function DespesasPage() {
   }, [expenses, query, filters, dateFrom, dateTo, catMap, today])
 
   // Summary totals — always derived from the same filtered set as the list.
+  // Card purchases (status 'cartao') aren't "a pagar" nor "vencido": they're
+  // owed through the card invoice, tracked on the Cartões screen.
   const paid = filtered.reduce((s, e) => (e.payment_date ? s + e.amount_cents : s), 0)
   const vencido = filtered.reduce(
-    (s, e) =>
-      !e.payment_date && expenseStatus(e.due_date, e.payment_date, today) === 'vencido'
-        ? s + e.amount_cents
-        : s,
+    (s, e) => (expenseStatusOf(e, today) === 'vencido' ? s + e.amount_cents : s),
     0,
   )
   const toPay = filtered.reduce((s, e) => {
-    if (e.payment_date) return s
-    return expenseStatus(e.due_date, e.payment_date, today) === 'vencido' ? s : s + e.amount_cents
+    const st = expenseStatusOf(e, today)
+    return st === 'a_vencer' || st === 'em_aberto' ? s + e.amount_cents : s
   }, 0)
 
   const sorted = useMemo(() => {
@@ -242,7 +242,7 @@ export function DespesasPage() {
     const cat = e.category_id ? catMap.get(e.category_id) : null
     const acc = e.account_id ? accMap.get(e.account_id) : null
     const card = e.card_id ? cardMap.get(e.card_id) : null
-    const st = expenseStatus(e.due_date, e.payment_date, today)
+    const st = expenseStatusOf(e, today)
     const list: DetailRow[] = [
       {
         label: 'Descrição',
@@ -264,7 +264,12 @@ export function DespesasPage() {
     if (acc) list.push({ label: 'Conta', value: acc.name })
     if (card) list.push({ label: 'Cartão', value: card.name })
     list.push({ label: 'Valor', value: <span className="font-mono tnum">{formatBRL(e.amount_cents)}</span> })
-    list.push({ label: 'Vencimento', value: formatDisplayDate(e.due_date) })
+    if (e.card_id && e.purchase_date)
+      list.push({ label: 'Data da compra', value: formatDisplayDate(e.purchase_date) })
+    list.push({
+      label: e.card_id ? 'Vencimento da fatura' : 'Vencimento',
+      value: formatDisplayDate(e.due_date),
+    })
     if (e.payment_date) list.push({ label: 'Pagamento', value: formatDisplayDate(e.payment_date) })
     list.push({ label: 'Status', value: <StatusBadge status={st} /> })
     if (e.notes) list.push({ label: 'Observações', value: e.notes })
@@ -385,7 +390,7 @@ export function DespesasPage() {
                   : e.account_id
                     ? accMap.get(e.account_id)?.name
                     : null
-                const status = expenseStatus(e.due_date, e.payment_date, today)
+                const status = expenseStatusOf(e, today)
                 const menu = menuFor(e, status)
                 const title = (
                   <span className="flex items-center gap-1.5">
@@ -421,7 +426,14 @@ export function DespesasPage() {
                         <div className="mt-0.5">{sourceLine}</div>
                       </div>
                       <div className="min-w-0">{categoryCell}</div>
-                      <div className="font-mono text-xs text-faint">{formatDisplayDate(e.due_date)}</div>
+                      <div className="font-mono text-xs text-faint">
+                        {formatDisplayDate(e.due_date)}
+                        {e.card_id && e.purchase_date && (
+                          <span className="block text-[10px] text-faint/80">
+                            Compra {formatDisplayDate(e.purchase_date)}
+                          </span>
+                        )}
+                      </div>
                       <div><StatusBadge status={status} /></div>
                       <div className="text-right font-mono text-[15px] font-semibold tnum text-ink">{formatBRL(e.amount_cents)}</div>
                       <div className="flex justify-end"><RowMenu items={menu} /></div>
@@ -433,7 +445,10 @@ export function DespesasPage() {
                         {title}
                         <div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-0.5">
                           {categoryCell}
-                          <span className="font-mono text-[11px] text-faint">{formatDisplayDate(e.due_date)}</span>
+                          <span className="font-mono text-[11px] text-faint">
+                            {formatDisplayDate(e.due_date)}
+                            {e.card_id && e.purchase_date && ` · compra ${formatDisplayDate(e.purchase_date)}`}
+                          </span>
                         </div>
                       </div>
                       <div className="flex flex-col items-end gap-1">

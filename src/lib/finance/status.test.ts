@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { expenseStatus, urgencyBucket } from './status'
+import { expenseStatus, expenseStatusOf, urgencyBucket } from './status'
 
 const today = '2026-07-23'
 
@@ -16,6 +16,21 @@ describe('expenseStatus', () => {
   })
   it('is em_aberto when unpaid and comfortably ahead', () => {
     expect(expenseStatus('2026-08-15', null, today)).toBe('em_aberto')
+  })
+})
+
+describe('expenseStatusOf', () => {
+  it('is cartao for an unpaid card purchase, whatever the due date', () => {
+    // Would be "vencido" by date, but it's on a card → cartao.
+    expect(expenseStatusOf({ due_date: '2026-07-20', payment_date: null, card_id: 'c1' }, today)).toBe('cartao')
+    expect(expenseStatusOf({ due_date: '2026-08-15', payment_date: null, card_id: 'c1' }, today)).toBe('cartao')
+  })
+  it('a PAID card expense falls back to pago (invoice settled)', () => {
+    expect(expenseStatusOf({ due_date: '2026-07-20', payment_date: '2026-07-21', card_id: 'c1' }, today)).toBe('pago')
+  })
+  it('a non-card expense keeps the plain date-based status', () => {
+    expect(expenseStatusOf({ due_date: '2026-07-20', payment_date: null, card_id: null }, today)).toBe('vencido')
+    expect(expenseStatusOf({ due_date: '2026-08-15', payment_date: null, card_id: null }, today)).toBe('em_aberto')
   })
 })
 

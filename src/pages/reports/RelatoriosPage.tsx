@@ -88,6 +88,7 @@ const STATUS_COLOR: Record<string, string> = {
   Vencido: 'var(--color-danger)',
   'A vencer': 'var(--color-warning)',
   'Em aberto': '#94A3B8',
+  Cartão: 'var(--color-brand)',
 }
 
 export function RelatoriosPage() {
@@ -112,6 +113,7 @@ export function RelatoriosPage() {
     { key: 'status', label: 'Status', options: [
       { value: 'pago', label: 'Pago' }, { value: 'vencido', label: 'Vencido' },
       { value: 'a_vencer', label: 'A vencer' }, { value: 'em_aberto', label: 'Em aberto' },
+      { value: 'cartao', label: 'Cartão' },
     ] },
   ], [categories, accounts, cards])
 

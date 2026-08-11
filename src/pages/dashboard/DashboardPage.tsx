@@ -3,6 +3,7 @@ import {
   CalendarClock,
   CheckCircle2,
   Clock,
+  CreditCard,
   Hash,
   Sparkles,
   TrendingDown,
@@ -139,6 +140,7 @@ export function DashboardPage() {
         <Tile label="A vencer" value={formatBRL(s.aVencer)} icon={CalendarClock} tone="text-warning" />
         <Tile label="Vencido" value={formatBRL(s.vencido)} icon={AlertTriangle} tone="text-danger" />
         <Tile label="Em aberto" value={formatBRL(s.emAberto)} icon={Clock} />
+        <Tile label="Cartão" value={formatBRL(s.cartao)} icon={CreditCard} tone="text-brand" />
         <Tile label="Lançamentos" value={String(s.qtdLancamentos)} icon={Hash} />
       </div>
       )}

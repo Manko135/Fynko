@@ -1,6 +1,6 @@
 import { diffDays, type ISODate } from '@/lib/dates'
 
-export type ExpenseStatus = 'pago' | 'vencido' | 'a_vencer' | 'em_aberto'
+export type ExpenseStatus = 'pago' | 'vencido' | 'a_vencer' | 'em_aberto' | 'cartao'
 
 export const A_VENCER_WINDOW_DAYS = 7
 
@@ -24,6 +24,25 @@ export function expenseStatus(
   if (daysUntilDue < 0) return 'vencido'
   if (daysUntilDue <= A_VENCER_WINDOW_DAYS) return 'a_vencer'
   return 'em_aberto'
+}
+
+/**
+ * Status of a full expense row, card-aware: an UNPAID card purchase is 'cartao'
+ * (it belongs to a credit-card invoice, so it isn't "vencida" or "a vencer" by
+ * the purchase date). Everything else — including a PAID card expense once its
+ * invoice is settled — falls back to the plain date-based status. Financial
+ * competência (cash by payment_date / vencimento) does NOT depend on this.
+ */
+export function expenseStatusOf(
+  e: {
+    due_date: ISODate
+    payment_date: ISODate | null | undefined
+    card_id: string | null
+  },
+  today: ISODate,
+): ExpenseStatus {
+  if (e.card_id && !e.payment_date) return 'cartao'
+  return expenseStatus(e.due_date, e.payment_date, today)
 }
 
 /** Urgency bucket for the alerts bell — one bucket per expense, most urgent. */

@@ -15,7 +15,7 @@ import { useCards } from '@/hooks/useCards'
 import { useGoals, useContributions } from '@/hooks/useGoals'
 import { formatBRL } from '@/lib/money'
 import { diffDays, formatDisplayDate, todayISO } from '@/lib/dates'
-import { expenseStatus } from '@/lib/finance/status'
+import { expenseStatusOf } from '@/lib/finance/status'
 
 type Event = {
   id: string
@@ -75,14 +75,14 @@ export function LinhaDoTempoPage() {
 
     for (const e of expenses ?? []) {
       const date = e.payment_date ?? e.due_date
-      const st = expenseStatus(e.due_date, e.payment_date, today)
+      const st = expenseStatusOf(e, today)
       const src = e.card_id
         ? cardName.get(e.card_id)
         : e.account_id
           ? accName.get(e.account_id)
           : null
       const stLabel =
-        st === 'pago' ? 'Paga' : st === 'vencido' ? 'Vencida' : st === 'a_vencer' ? 'A vencer' : 'Em aberto'
+        st === 'pago' ? 'Paga' : st === 'vencido' ? 'Vencida' : st === 'a_vencer' ? 'A vencer' : st === 'cartao' ? 'No cartão' : 'Em aberto'
       list.push({
         id: `exp-${e.id}`,
         date,

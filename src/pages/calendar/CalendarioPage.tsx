@@ -22,7 +22,7 @@ import {
   todayISO,
   toISODate,
 } from '@/lib/dates'
-import { expenseStatus } from '@/lib/finance/status'
+import { expenseStatusOf } from '@/lib/finance/status'
 import { cn } from '@/utils/cn'
 import type { Expense, Goal, Income, Subscription } from '@/types/domain'
 
@@ -190,7 +190,7 @@ export function CalendarioPage() {
             const hasSub = (subByDay.get(day)?.length ?? 0) > 0
             const hasGoal = (goalByDay.get(day)?.length ?? 0) > 0
             const hasOverdue = exp.some(
-              (e) => expenseStatus(e.due_date, e.payment_date, today) === 'vencido',
+              (e) => expenseStatusOf(e, today) === 'vencido',
             )
             const hasDue = exp.length > 0
             const isToday = day === today
@@ -282,7 +282,7 @@ export function CalendarioPage() {
             </div>
           ))}
           {selExp.map((e) => {
-            const status = expenseStatus(e.due_date, e.payment_date, today)
+            const status = expenseStatusOf(e, today)
             return (
               <div key={e.id} className="flex items-center gap-3 rounded-xl bg-surface-2 px-3 py-2.5">
                 <span className="grid size-8 place-items-center rounded-lg bg-danger/12 text-danger">

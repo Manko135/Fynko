@@ -51,6 +51,21 @@ export function currentInvoiceDue(
   return dueStrictlyAfter(dueDay, nextClosing)
 }
 
+/**
+ * The vencimento of the invoice a purchase lands on, given the card's closing
+ * and due days. A buy before the next closing goes on that invoice; a buy after
+ * it rolls to the following one. This is exactly "which invoice is open on the
+ * purchase date", so it reuses currentInvoiceDue with the purchase date.
+ * Example: compra 05/08, fecha dia 10, vence dia 20 → vencimento 20/08.
+ */
+export function invoiceDueForPurchase(
+  purchaseDate: ISODate,
+  closingDay: number,
+  dueDay: number,
+): ISODate {
+  return currentInvoiceDue(closingDay, dueDay, purchaseDate)
+}
+
 type CardExpense = {
   amountCents: Cents
   dueDate: ISODate

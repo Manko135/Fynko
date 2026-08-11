@@ -8,6 +8,7 @@ const CONFIG: Record<
   vencido: { label: 'Vencido', className: 'bg-danger/10 text-danger ring-danger/25', dot: 'bg-danger' },
   a_vencer: { label: 'A vencer', className: 'bg-warning/12 text-warning ring-warning/30', dot: 'bg-warning' },
   em_aberto: { label: 'Em aberto', className: 'bg-ink/6 text-muted ring-ink/10', dot: 'bg-muted' },
+  cartao: { label: 'Cartão', className: 'bg-brand/10 text-brand ring-brand/25', dot: 'bg-brand' },
 }
 
 export function StatusBadge({ status }: { status: ExpenseStatus }) {

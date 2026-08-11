@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest'
 import {
   currentInvoiceDue,
   currentInvoiceExpenses,
+  invoiceDueForPurchase,
   nextClosingOnOrAfter,
   summarizeCard,
 } from './invoice'
@@ -34,6 +35,21 @@ describe('currentInvoiceDue', () => {
     // Closes on the 5th, due on the 20th; seen 09/ago (after 05/ago close) →
     // next closing 05/set, due 20/set.
     expect(currentInvoiceDue(5, 20, '2026-08-09')).toBe('2026-09-20')
+  })
+})
+
+describe('invoiceDueForPurchase', () => {
+  it('a buy before the closing goes on that invoice (spec example)', () => {
+    // Compra 05/08, fecha dia 10, vence dia 20 → vencimento 20/08.
+    expect(invoiceDueForPurchase('2026-08-05', 10, 20)).toBe('2026-08-20')
+  })
+  it('a buy after the closing rolls to the next invoice', () => {
+    // Compra 15/08 (após fechar 10/08) → fecha 10/09, vence 20/09.
+    expect(invoiceDueForPurchase('2026-08-15', 10, 20)).toBe('2026-09-20')
+  })
+  it('handles a due day before the closing day (vencimento no mês seguinte)', () => {
+    // Fecha dia 26, vence dia 10; compra 05/08 → vence 10/09.
+    expect(invoiceDueForPurchase('2026-08-05', 26, 10)).toBe('2026-09-10')
   })
 })
 

@@ -3,7 +3,7 @@ import { useIncomes } from '@/hooks/useIncomes'
 import { useExpenses } from '@/hooks/useExpenses'
 import { useCategories } from '@/hooks/useCategories'
 import { useBalances } from '@/hooks/useBalances'
-import { expenseStatus } from '@/lib/finance/status'
+import { expenseStatusOf } from '@/lib/finance/status'
 import { monthKey, todayISO, toISODate, parseISODate } from '@/lib/dates'
 
 const MONTH_LABELS = ['jan', 'fev', 'mar', 'abr', 'mai', 'jun', 'jul', 'ago', 'set', 'out', 'nov', 'dez']
@@ -46,16 +46,19 @@ export function useDashboardStats() {
       .filter((e) => monthKey(e.payment_date ?? e.due_date) === curMonth)
       .reduce((s, e) => s + e.amount_cents, 0)
 
-    // Status buckets over all unpaid expenses.
+    // Status buckets over all expenses. Card purchases go in their own bucket
+    // (not vencido/a vencer/em aberto) — they're owed through the card invoice.
     let vencido = 0
     let aVencer = 0
     let emAberto = 0
     let pago = 0
+    let cartao = 0
     for (const e of exp) {
-      const st = expenseStatus(e.due_date, e.payment_date, today)
+      const st = expenseStatusOf(e, today)
       if (st === 'pago') pago += e.amount_cents
       else if (st === 'vencido') vencido += e.amount_cents
       else if (st === 'a_vencer') aVencer += e.amount_cents
+      else if (st === 'cartao') cartao += e.amount_cents
       else emAberto += e.amount_cents
     }
 
@@ -123,6 +126,7 @@ export function useDashboardStats() {
       vencido,
       aVencer,
       emAberto,
+      cartao,
       qtdLancamentos: inc.length + exp.length,
       saldoPrevistoFimMes,
       economiaPrevista: receitaMes - despesaMes,
