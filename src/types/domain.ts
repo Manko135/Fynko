@@ -196,6 +196,27 @@ export type GoalContribution = {
   created_at: string
 }
 
+export type SimulationItem = {
+  description: string
+  amount_cents: number
+  category_id: string | null
+  icon: string | null
+  notes: string | null
+}
+
+export type Simulation = {
+  id: string
+  user_id: string
+  name: string
+  icon: string | null
+  target_date: string
+  items: SimulationItem[]
+  notes: string | null
+  converted_at: string | null
+  created_at: string
+  updated_at: string
+}
+
 export const ACCOUNT_TYPE_LABELS: Record<AccountType, string> = {
   corrente: 'Conta corrente',
   poupanca: 'Poupança',

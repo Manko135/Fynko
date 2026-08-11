@@ -1,8 +1,9 @@
 import { useEffect } from 'react'
-import { useMutation, useQueryClient } from '@tanstack/react-query'
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import {
   cancelRecurringIncome,
   createRecurringIncome,
+  listRecurringIncomes,
   reconcileRecurringIncomes,
   type RecurringIncomeInput,
 } from '@/services/recurringIncomes'
@@ -11,6 +12,10 @@ const RELATED = [['incomes'], ['recurring-incomes'], ['balances']]
 
 function invalidateAll(qc: ReturnType<typeof useQueryClient>) {
   RELATED.forEach((k) => qc.invalidateQueries({ queryKey: k }))
+}
+
+export function useRecurringIncomes() {
+  return useQuery({ queryKey: ['recurring-incomes'], queryFn: listRecurringIncomes })
 }
 
 export function useCreateRecurringIncome() {

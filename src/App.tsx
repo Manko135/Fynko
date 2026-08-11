@@ -28,6 +28,7 @@ const ConfiguracoesPage = page(() => import('@/pages/settings/ConfiguracoesPage'
 const PerfilPage = page(() => import('@/pages/profile/PerfilPage'), 'PerfilPage')
 const RelatoriosPage = page(() => import('@/pages/reports/RelatoriosPage'), 'RelatoriosPage')
 const CriptomoedasPage = page(() => import('@/pages/crypto/CriptomoedasPage'), 'CriptomoedasPage')
+const SimulacaoPage = page(() => import('@/pages/simulation/SimulacaoPage'), 'SimulacaoPage')
 
 // Routes that already have a real page override the placeholder.
 const REAL_PAGES: Record<string, ReactNode> = {
@@ -44,6 +45,7 @@ const REAL_PAGES: Record<string, ReactNode> = {
   '/assinaturas': <AssinaturasPage />,
   '/relatorios': <RelatoriosPage />,
   '/criptomoedas': <CriptomoedasPage />,
+  '/simulacao': <SimulacaoPage />,
 }
 
 export default function App() {
