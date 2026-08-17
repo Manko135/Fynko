@@ -158,8 +158,16 @@ export function DespesasPage() {
     const accs = filters.account ?? []
     const cardsF = filters.card ?? []
     return (expenses ?? []).filter((r) => {
-      if (dateFrom && r.due_date < dateFrom) return false
-      if (dateTo && r.due_date > dateTo) return false
+      if (dateFrom || dateTo) {
+        // Card purchases carry two dates: the invoice due (due_date) and the
+        // purchase date. Match the period if EITHER falls inside it, so a card
+        // buy shows up both by when it was bought and by when the invoice is due.
+        const dates = r.purchase_date ? [r.due_date, r.purchase_date] : [r.due_date]
+        const inPeriod = dates.some(
+          (d) => (!dateFrom || d >= dateFrom) && (!dateTo || d <= dateTo),
+        )
+        if (!inPeriod) return false
+      }
       if (cats.length && !(r.category_id && cats.includes(r.category_id))) return false
       if (types.length && !types.includes(r.type)) return false
       if (accs.length && !(r.account_id && accs.includes(r.account_id))) return false
