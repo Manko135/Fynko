@@ -4,6 +4,7 @@ import { Button } from '@/components/ui/Button'
 import { ConfirmDialog } from '@/components/ui/ConfirmDialog'
 import { AccountFormModal } from './AccountFormModal'
 import { TransferModal } from './TransferModal'
+import { BankBadge } from '@/components/accounts/BankBadge'
 import { useAccounts, useDeleteAccount } from '@/hooks/useAccounts'
 import { useBalances } from '@/hooks/useBalances'
 import { useToast } from '@/contexts/ToastContext'
@@ -32,13 +33,8 @@ function AccountCard({
       />
       <div className="flex items-start justify-between gap-3 pl-2">
         <div className="min-w-0">
-          <div className="flex items-center gap-2">
-            <span
-              className="grid size-8 shrink-0 place-items-center rounded-lg"
-              style={{ background: `${color}22`, color }}
-            >
-              <Wallet className="size-4" />
-            </span>
+          <div className="flex items-center gap-2.5">
+            <BankBadge name={account.name} bank={account.bank} color={color} size={36} />
             <div className="min-w-0">
               <div className="truncate font-semibold">{account.name}</div>
               <div className="truncate text-xs text-muted">

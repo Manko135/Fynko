@@ -58,11 +58,11 @@ function SummaryCard({
   valueClass: string
 }) {
   return (
-    <div className="flex items-center gap-3 rounded-2xl border border-rule bg-surface px-5 py-3 shadow-sm">
-      <span className={`grid size-10 shrink-0 place-items-center rounded-xl ${iconClass}`}>{icon}</span>
+    <div className="flex items-center gap-3 rounded-2xl border border-rule bg-surface px-4 py-3 shadow-sm">
+      <span className={`grid size-9 shrink-0 place-items-center rounded-xl ${iconClass}`}>{icon}</span>
       <div className="min-w-0">
-        <div className="font-mono text-[10px] uppercase tracking-[0.15em] text-muted">{label}</div>
-        <div className={`font-display text-2xl font-bold leading-tight tnum ${valueClass}`}>{value}</div>
+        <div className="truncate font-mono text-[10px] uppercase tracking-[0.14em] text-muted">{label}</div>
+        <div className={`truncate font-display text-lg font-bold leading-tight tnum ${valueClass}`}>{value}</div>
       </div>
     </div>
   )
@@ -178,25 +178,30 @@ export function DespesasPage() {
       }
       if (!q) return true
       const cat = r.category_id ? catMap.get(r.category_id)?.name ?? '' : ''
+      const valueStr = (r.amount_cents / 100).toLocaleString('pt-BR', { minimumFractionDigits: 2 })
       return (
         r.description.toLowerCase().includes(q) ||
-        cat.toLowerCase().includes(q)
+        cat.toLowerCase().includes(q) ||
+        valueStr.includes(q) ||
+        valueStr.replace(/\./g, '').includes(q)
       )
     })
   }, [expenses, query, filters, dateFrom, dateTo, catMap, today])
 
-  // Summary totals — always derived from the same filtered set as the list.
-  // Card purchases (status 'cartao') aren't "a pagar" nor "vencido": they're
-  // owed through the card invoice, tracked on the Cartões screen.
-  const paid = filtered.reduce((s, e) => (e.payment_date ? s + e.amount_cents : s), 0)
-  const vencido = filtered.reduce(
-    (s, e) => (expenseStatusOf(e, today) === 'vencido' ? s + e.amount_cents : s),
-    0,
-  )
-  const toPay = filtered.reduce((s, e) => {
-    const st = expenseStatusOf(e, today)
-    return st === 'a_vencer' || st === 'em_aberto' ? s + e.amount_cents : s
-  }, 0)
+  // Summary totals — distinct buckets over the same filtered set (each expense
+  // falls in exactly one), so they never overlap and add up cleanly.
+  const totals = useMemo(() => {
+    let aPagar = 0, aVencer = 0, vencido = 0, cartao = 0, pago = 0
+    for (const e of filtered) {
+      const st = expenseStatusOf(e, today)
+      if (st === 'pago') pago += e.amount_cents
+      else if (st === 'vencido') vencido += e.amount_cents
+      else if (st === 'a_vencer') aVencer += e.amount_cents
+      else if (st === 'cartao') cartao += e.amount_cents
+      else aPagar += e.amount_cents // em_aberto
+    }
+    return { aPagar, aVencer, vencido, cartao, pago }
+  }, [filtered, today])
 
   const sorted = useMemo(() => {
     if (!sort) return filtered
@@ -303,36 +308,22 @@ export function DespesasPage() {
 
   return (
     <div className="mx-auto max-w-5xl">
-      <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center sm:justify-between">
-        <div className="grid grid-cols-1 gap-3 sm:flex sm:flex-wrap">
-          <SummaryCard
-            label="A pagar"
-            value={formatBRL(toPay)}
-            icon={<CalendarClock className="size-5" />}
-            iconClass="bg-warning/15 text-warning"
-            valueClass="text-warning"
-          />
-          <SummaryCard
-            label="Vencido"
-            value={formatBRL(vencido)}
-            icon={<AlertTriangle className="size-5" />}
-            iconClass="bg-danger/12 text-danger"
-            valueClass="text-danger"
-          />
-          <SummaryCard
-            label="Pago"
-            value={formatBRL(paid)}
-            icon={<CheckCircle2 className="size-5" />}
-            iconClass="bg-positive/12 text-positive"
-            valueClass="text-ink/80"
-          />
+      {!isEmpty && (
+        <div className="mb-4 flex flex-col gap-4">
+          <div className="flex justify-end">
+            <Button className="w-full sm:w-auto" icon={<Plus className="size-4" strokeWidth={2.5} />} onClick={() => { setEditing(null); setFormOpen(true) }}>
+              Nova despesa
+            </Button>
+          </div>
+          <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
+            <SummaryCard label="A pagar" value={formatBRL(totals.aPagar)} icon={<Wallet className="size-[18px]" />} iconClass="bg-ink/8 text-muted" valueClass="text-ink/80" />
+            <SummaryCard label="A vencer" value={formatBRL(totals.aVencer)} icon={<CalendarClock className="size-[18px]" />} iconClass="bg-warning/15 text-warning" valueClass="text-warning" />
+            <SummaryCard label="Vencido" value={formatBRL(totals.vencido)} icon={<AlertTriangle className="size-[18px]" />} iconClass="bg-danger/12 text-danger" valueClass="text-danger" />
+            <SummaryCard label="Cartão" value={formatBRL(totals.cartao)} icon={<CreditCard className="size-[18px]" />} iconClass="bg-brand/12 text-brand" valueClass="text-brand" />
+            <SummaryCard label="Pago" value={formatBRL(totals.pago)} icon={<CheckCircle2 className="size-[18px]" />} iconClass="bg-positive/12 text-positive" valueClass="text-ink/80" />
+          </div>
         </div>
-        {!isEmpty && (
-          <Button className="w-full sm:w-auto" icon={<Plus className="size-4" strokeWidth={2.5} />} onClick={() => { setEditing(null); setFormOpen(true) }}>
-            Nova despesa
-          </Button>
-        )}
-      </div>
+      )}
 
       {isEmpty && (
         <div className="mx-auto flex max-w-sm flex-col items-center gap-3 py-16 text-center">
@@ -370,7 +361,7 @@ export function DespesasPage() {
               <input
                 value={query}
                 onChange={(e) => { setQuery(e.target.value); setPage(0) }}
-                placeholder="Buscar por descrição ou categoria"
+                placeholder="Buscar por descrição, categoria ou valor"
                 className="w-full bg-transparent text-sm text-ink placeholder:text-faint outline-none"
               />
             </div>
@@ -448,9 +439,10 @@ export function DespesasPage() {
                     </div>
 
                     {/* Mobile */}
-                    <div className="flex items-center gap-3 py-3 sm:hidden">
+                    <div className="flex items-start gap-3 py-3 sm:hidden">
                       <div className="min-w-0 flex-1">
                         {title}
+                        <div className="mt-0.5">{sourceLine}</div>
                         <div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-0.5">
                           {categoryCell}
                           <span className="font-mono text-[11px] text-faint">
@@ -459,11 +451,11 @@ export function DespesasPage() {
                           </span>
                         </div>
                       </div>
-                      <div className="flex flex-col items-end gap-1">
+                      <div className="flex shrink-0 flex-col items-end gap-1.5">
                         <span className="font-mono text-[15px] font-semibold tnum text-ink">{formatBRL(e.amount_cents)}</span>
                         <StatusBadge status={status} />
+                        <RowMenu items={menu} />
                       </div>
-                      <RowMenu items={menu} />
                     </div>
                   </div>
                 )

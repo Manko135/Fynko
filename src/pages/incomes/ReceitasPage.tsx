@@ -12,6 +12,7 @@ import {
   Search,
   TrendingUp,
   Trash2,
+  Wallet,
 } from 'lucide-react'
 import { Button } from '@/components/ui/Button'
 import { ConfirmDialog } from '@/components/ui/ConfirmDialog'
@@ -101,9 +102,12 @@ export function ReceitasPage() {
       if (accs.length && !(r.account_id && accs.includes(r.account_id))) return false
       if (!q) return true
       const cat = r.category_id ? catMap.get(r.category_id)?.name ?? '' : ''
+      const valueStr = (r.amount_cents / 100).toLocaleString('pt-BR', { minimumFractionDigits: 2 })
       return (
         r.description.toLowerCase().includes(q) ||
-        cat.toLowerCase().includes(q)
+        cat.toLowerCase().includes(q) ||
+        valueStr.includes(q) ||
+        valueStr.replace(/\./g, '').includes(q)
       )
     })
   }, [incomes, query, filters, dateFrom, dateTo, catMap])
@@ -268,7 +272,7 @@ export function ReceitasPage() {
               <input
                 value={query}
                 onChange={(e) => { setQuery(e.target.value); setPage(0) }}
-                placeholder="Buscar por descrição ou categoria"
+                placeholder="Buscar por descrição, categoria ou valor"
                 className="w-full bg-transparent text-sm text-ink placeholder:text-faint outline-none"
               />
             </div>
@@ -277,7 +281,7 @@ export function ReceitasPage() {
             <div className="hidden items-center gap-3 border-b border-rule px-4 py-2.5 sm:grid sm:grid-cols-[1.7fr_1fr_1fr_0.9fr_44px]">
               <SortHeader label="Descrição" active={sort?.key === 'descricao'} dir={sort?.dir} onClick={() => toggleSort('descricao')} />
               <SortHeader label="Categoria" active={sort?.key === 'categoria'} dir={sort?.dir} onClick={() => toggleSort('categoria')} />
-              <span className="font-mono text-[10px] uppercase tracking-[0.12em] text-faint">Conta</span>
+              <span className="font-mono text-[10px] uppercase tracking-[0.12em] text-faint">Data</span>
               <SortHeader label="Valor" active={sort?.key === 'valor'} dir={sort?.dir} onClick={() => toggleSort('valor')} align="right" />
               <span className="sr-only">Ações</span>
             </div>
@@ -300,17 +304,26 @@ export function ReceitasPage() {
                     <span className="truncate">{cat?.name ?? '—'}</span>
                   </span>
                 )
+                const sourceLine = (
+                  <span className="flex items-center gap-1 font-mono text-[11px] text-muted">
+                    <Wallet className="size-3" />
+                    {acc?.name ?? '—'}
+                  </span>
+                )
 
                 return (
                   <div key={r.id} className="px-4 transition-colors hover:bg-surface-2/60">
                     {/* Desktop */}
                     <div className="hidden items-center gap-3 py-3 sm:grid sm:grid-cols-[1.7fr_1fr_1fr_0.9fr_44px]">
-                      <div className="flex min-w-0 items-center gap-1.5 font-semibold text-ink">
-                        <span className="truncate">{r.description}</span>
-                        {r.recurring_income_id && <Repeat className="size-3 shrink-0 text-muted" aria-label="Recorrente" />}
+                      <div className="min-w-0">
+                        <div className="flex items-center gap-1.5 font-semibold text-ink">
+                          <span className="truncate">{r.description}</span>
+                          {r.recurring_income_id && <Repeat className="size-3 shrink-0 text-muted" aria-label="Recorrente" />}
+                        </div>
+                        <div className="mt-0.5">{sourceLine}</div>
                       </div>
                       <div className="min-w-0">{categoryCell}</div>
-                      <div className="truncate text-sm text-muted">{acc?.name ?? '—'}</div>
+                      <div className="font-mono text-xs text-faint">{formatDisplayDate(r.date)}</div>
                       <div className="text-right font-mono text-[15px] font-semibold tnum text-positive">
                         {formatBRL(r.amount_cents, { sign: true })}
                       </div>
@@ -318,21 +331,24 @@ export function ReceitasPage() {
                     </div>
 
                     {/* Mobile */}
-                    <div className="flex items-center gap-3 py-3 sm:hidden">
+                    <div className="flex items-start gap-3 py-3 sm:hidden">
                       <div className="min-w-0 flex-1">
                         <div className="flex items-center gap-1.5 font-semibold text-ink">
                           <span className="truncate">{r.description}</span>
                           {r.recurring_income_id && <Repeat className="size-3 shrink-0 text-muted" aria-label="Recorrente" />}
                         </div>
+                        <div className="mt-0.5">{sourceLine}</div>
                         <div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-0.5">
                           {categoryCell}
                           <span className="font-mono text-[11px] text-faint">{formatDisplayDate(r.date)}</span>
                         </div>
                       </div>
-                      <span className="font-mono text-[15px] font-semibold tnum text-positive">
-                        {formatBRL(r.amount_cents, { sign: true })}
-                      </span>
-                      <RowMenu items={menu} />
+                      <div className="flex shrink-0 items-center gap-2">
+                        <span className="font-mono text-[15px] font-semibold tnum text-positive">
+                          {formatBRL(r.amount_cents, { sign: true })}
+                        </span>
+                        <RowMenu items={menu} />
+                      </div>
                     </div>
                   </div>
                 )
