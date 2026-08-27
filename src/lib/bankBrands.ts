@@ -10,7 +10,7 @@ export type BankBrand = { domain?: string; color: string; cash?: boolean }
 // only (for short/ambiguous keys like "bb", "xp", "pan").
 const BANKS: { keys: string[]; brand: BankBrand; word?: boolean }[] = [
   { keys: ['nubank', 'nu pagamentos'], brand: { domain: 'nubank.com.br', color: '#820AD1' } },
-  { keys: ['banco inter', 'inter'], brand: { domain: 'bancointer.com.br', color: '#FF7A00' } },
+  { keys: ['banco inter', 'inter'], brand: { domain: 'inter.co', color: '#FF7A00' } },
   { keys: ['itau', 'itaú', 'unibanco'], brand: { domain: 'itau.com.br', color: '#EC7000' } },
   { keys: ['bradesco'], brand: { domain: 'bradesco.com.br', color: '#CC092F' } },
   { keys: ['banco do brasil'], brand: { domain: 'bb.com.br', color: '#F9DD16' } },
