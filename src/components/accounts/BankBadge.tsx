@@ -43,10 +43,10 @@ export function BankBadge({
         <img
           src={logoSrc!}
           alt=""
-          width={size * 0.6}
-          height={size * 0.6}
+          width={size}
+          height={size}
           onError={() => setFailed(true)}
-          className="object-contain"
+          className="size-full object-cover"
         />
       ) : (
         <span className="font-display font-bold" style={{ fontSize: size * 0.4 }}>
