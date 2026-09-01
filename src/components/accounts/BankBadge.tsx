@@ -40,14 +40,13 @@ export function BankBadge({
       {brand?.cash ? (
         <Banknote style={{ width: size * 0.5, height: size * 0.5 }} />
       ) : showLogo ? (
-        <img
-          src={logoSrc!}
-          alt=""
-          width={size}
-          height={size}
-          onError={() => setFailed(true)}
-          className="size-full object-cover"
-        />
+        // Full-tile logos (e.g. PicPay) fill the round badge like an app icon;
+        // the rest sit centered with padding on white, as before.
+        brand?.fill ? (
+          <img src={logoSrc!} alt="" width={size} height={size} onError={() => setFailed(true)} className="size-full object-cover" />
+        ) : (
+          <img src={logoSrc!} alt="" width={size * 0.6} height={size * 0.6} onError={() => setFailed(true)} className="object-contain" />
+        )
       ) : (
         <span className="font-display font-bold" style={{ fontSize: size * 0.4 }}>
           {initial}

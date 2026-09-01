@@ -4,7 +4,7 @@
  * logo (via favicon service) and a brand color. "Dinheiro vivo"/espécie is a
  * special case shown with a cash symbol. No match → colored monogram fallback.
  */
-export type BankBrand = { domain?: string; color: string; cash?: boolean }
+export type BankBrand = { domain?: string; color: string; cash?: boolean; fill?: boolean }
 
 // First match wins; more specific keys first. `word: true` matches whole words
 // only (for short/ambiguous keys like "bb", "xp", "pan").
@@ -19,7 +19,7 @@ const BANKS: { keys: string[]; brand: BankBrand; word?: boolean }[] = [
   { keys: ['santander'], brand: { domain: 'santander.com.br', color: '#EC0000' } },
   { keys: ['sicredi'], brand: { domain: 'sicredi.com.br', color: '#3FA110' } },
   { keys: ['sicoob'], brand: { domain: 'sicoob.com.br', color: '#00AE9D' } },
-  { keys: ['picpay'], brand: { domain: 'picpay.com', color: '#21C25E' } },
+  { keys: ['picpay'], brand: { domain: 'picpay.com', color: '#21C25E', fill: true } },
   { keys: ['revolut'], brand: { domain: 'revolut.com', color: '#0666EB' } },
   { keys: ['mercado pago', 'mercadopago'], brand: { domain: 'mercadopago.com.br', color: '#009EE3' } },
   { keys: ['pagbank', 'pagseguro'], brand: { domain: 'pagbank.com.br', color: '#0F9D58' } },
