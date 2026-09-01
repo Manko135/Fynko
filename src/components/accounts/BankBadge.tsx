@@ -29,7 +29,7 @@ export function BankBadge({
 
   return (
     <span
-      className="grid shrink-0 place-items-center overflow-hidden rounded-xl"
+      className="grid shrink-0 place-items-center overflow-hidden rounded-full ring-1 ring-black/5"
       style={{
         width: size,
         height: size,

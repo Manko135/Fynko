@@ -1,9 +1,10 @@
 import { useState } from 'react'
-import { ArrowLeftRight, Pencil, Plus, Trash2, Wallet } from 'lucide-react'
+import { ArrowLeftRight, History, Pencil, Plus, Trash2, Wallet } from 'lucide-react'
 import { Button } from '@/components/ui/Button'
 import { ConfirmDialog } from '@/components/ui/ConfirmDialog'
 import { AccountFormModal } from './AccountFormModal'
 import { TransferModal } from './TransferModal'
+import { TransferHistoryModal } from './TransferHistoryModal'
 import { BankBadge } from '@/components/accounts/BankBadge'
 import { useAccounts, useDeleteAccount } from '@/hooks/useAccounts'
 import { useBalances } from '@/hooks/useBalances'
@@ -101,6 +102,7 @@ export function ContasPage() {
 
   const [formOpen, setFormOpen] = useState(false)
   const [transferOpen, setTransferOpen] = useState(false)
+  const [historyOpen, setHistoryOpen] = useState(false)
   const [editing, setEditing] = useState<Account | null>(null)
   const [deleting, setDeleting] = useState<Account | null>(null)
 
@@ -139,6 +141,13 @@ export function ContasPage() {
         </div>
         {accounts && accounts.length > 0 && (
           <div className="flex flex-wrap gap-2">
+            <Button
+              variant="ghost"
+              icon={<History className="size-4" />}
+              onClick={() => setHistoryOpen(true)}
+            >
+              Transferências
+            </Button>
             <Button
               variant="secondary"
               icon={<ArrowLeftRight className="size-4" />}
@@ -195,6 +204,7 @@ export function ContasPage() {
         editing={editing}
       />
       <TransferModal open={transferOpen} onClose={() => setTransferOpen(false)} />
+      <TransferHistoryModal open={historyOpen} onClose={() => setHistoryOpen(false)} />
       <ConfirmDialog
         open={!!deleting}
         onClose={() => setDeleting(null)}
